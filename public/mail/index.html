@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MailMind — Réponse IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Figtree:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+
+/* ──────────────────────────────────────────
+   BASE
+────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { height: 100%; }
+
+body {
+  min-height: 100%;
+  background: #f7f5f0;
+  color: #1a1814;
+  font-family: 'Figtree', sans-serif;
+  display: flex;
+  flex-direction: column;
+  /* Grain subtil sur fond crème */
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(212,168,83,.07) 0%, transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+}
+
+/* ──────────────────────────────────────────
+   HEADER
+────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 52px;
+  height: 64px;
+  border-bottom: 1px solid rgba(26,24,20,.08);
+  background: rgba(247,245,240,.9);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.logo-name {
+  font-family: 'Cormorant', serif;
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -.2px;
+  color: #1a1814;
+}
+.logo-name em {
+  font-style: italic;
+  color: #b8893a;
+}
+.logo-sep {
+  width: 1px;
+  height: 14px;
+  background: rgba(26,24,20,.15);
+}
+.logo-sub {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #9a9180;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: #9a9180;
+}
+.ai-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid rgba(184,137,58,.25);
+  border-radius: 20px;
+  background: rgba(184,137,58,.05);
+  color: #b8893a;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .5px;
+}
+.ai-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #b8893a;
+  animation: breathe 2.5s ease-in-out infinite;
+}
+@keyframes breathe {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .4; transform: scale(.7); }
+}
+
+/* ──────────────────────────────────────────
+   SCÈNE PRINCIPALE
+────────────────────────────────────────── */
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 24px 80px;
+  animation: fadeUp .6s ease both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Titre de section */
+.scene-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 48px;
+  text-align: center;
+}
+.scene-label::before,
+.scene-label::after {
+  content: '';
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(26,24,20,.15));
+}
+.scene-label::after {
+  background: linear-gradient(90deg, rgba(26,24,20,.15), transparent);
+}
+.scene-label-text {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #b8893a;
+}
+
+/* ──────────────────────────────────────────
+   CARTE PRINCIPALE
+────────────────────────────────────────── */
+.card-wrap {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px; /* liseré fin entre les deux cartes */
+}
+
+/* Carte commune */
+.card {
+  background: #fff;
+  border: 1px solid rgba(26,24,20,.07);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(26,24,20,.04),
+    0 4px 16px rgba(26,24,20,.05),
+    0 16px 48px rgba(26,24,20,.04);
+}
+
+/* ── Carte EMAIL REÇU ── */
+.card-received { animation: fadeUp .5s .1s ease both; }
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 28px 36px 22px;
+  border-bottom: 1px solid rgba(26,24,20,.06);
+  gap: 16px;
+}
+.card-header-left { flex: 1; min-width: 0; }
+.card-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #9a9180;
+  margin-bottom: 10px;
+}
+.card-type-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #c8b89a;
+}
+.card-subject {
+  font-family: 'Cormorant', serif;
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: #1a1814;
+  margin-bottom: 10px;
+}
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12.5px;
+  color: #9a9180;
+  flex-wrap: wrap;
+}
+.card-meta strong { color: #4a4640; font-weight: 500; }
+.meta-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #c8b89a;
+}
+
+.card-header-right {
+  flex-shrink: 0;
+}
+.complexity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.cb-complexe {
+  background: rgba(234,130,35,.08);
+  border: 1px solid rgba(234,130,35,.2);
+  color: #c47820;
+}
+.cb-simple {
+  background: rgba(52,167,130,.08);
+  border: 1px solid rgba(52,167,130,.2);
+  color: #2a9a78;
+}
+
+.card-body {
+  padding: 28px 36px 32px;
+}
+.email-text {
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: #3a3630;
+  white-space: pre-wrap;
+  font-weight: 300;
+}
+
+/* ── Carte RÉPONSE IA ── */
+.card-ai {
+  animation: fadeUp .5s .25s ease both;
+  border-color: rgba(184,137,58,.12);
+  box-shadow:
+    0 1px 2px rgba(184,137,58,.04),
+    0 4px 24px rgba(184,137,58,.06),
+    0 20px 60px rgba(26,24,20,.05);
+}
+
+.ai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 36px;
+  border-bottom: 1px solid rgba(184,137,58,.1);
+  background: linear-gradient(135deg, rgba(184,137,58,.04) 0%, rgba(247,245,240,.5) 100%);
+}
+.ai-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ai-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #b8893a, #d4a853);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  box-shadow: 0 3px 12px rgba(184,137,58,.3);
+}
+.ai-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1814;
+  margin-bottom: 2px;
+}
+.ai-header-sub {
+  font-size: 11px;
+  color: #9a9180;
+}
+
+.ai-raison {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: rgba(184,137,58,.06);
+  border: 1px solid rgba(184,137,58,.15);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #9a7040;
+  font-style: italic;
+  max-width: 320px;
+  text-align: right;
+}
+
+/* Zone de texte éditable */
+.ai-textarea-wrap {
+  padding: 28px 36px 20px;
+  position: relative;
+}
+.ai-textarea-wrap::before {
+  content: '';
+  position: absolute;
+  left: 36px;
+  top: 28px;
+  bottom: 20px;
+  width: 2px;
+  background: linear-gradient(to bottom, #b8893a, rgba(184,137,58,0));
+  border-radius: 2px;
+}
+.ai-textarea {
+  width: 100%;
+  min-height: 180px;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'Figtree', sans-serif;
+  font-size: 14.5px;
+  line-height: 1.85;
+  font-weight: 300;
+  color: #2a2620;
+  padding-left: 20px;
+  caret-color: #b8893a;
+}
+.ai-textarea:focus { color: #1a1814; }
+
+/* Barre de subject */
+.ai-subject-bar {
+  margin: 0 36px;
+  padding: 10px 0;
+  border-top: 1px dashed rgba(26,24,20,.08);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ai-subject-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #c8b89a;
+  flex-shrink: 0;
+}
+.ai-subject-val {
+  font-size: 12.5px;
+  color: #6a6258;
+  font-style: italic;
+}
+
+/* ── Footer actions ── */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 36px 28px;
+}
+.footer-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #b8b0a4;
+}
+.hint-icon { font-size: 13px; }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Boutons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 26px;
+  border-radius: 10px;
+  font-family: 'Figtree', sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all .2s cubic-bezier(.34,1.4,.64,1);
+  white-space: nowrap;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid rgba(26,24,20,.12);
+  color: #6a6258;
+}
+.btn-outline:hover {
+  border-color: rgba(26,24,20,.22);
+  color: #1a1814;
+  transform: translateY(-1px);
+}
+
+.btn-validate {
+  background: linear-gradient(135deg, #b8893a 0%, #d4a853 100%);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(184,137,58,.3);
+  font-weight: 600;
+}
+.btn-validate:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(184,137,58,.4);
+}
+.btn-validate:active { transform: translateY(0); }
+
+/* ── État validé ── */
+.validated-state {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px 36px 28px;
+  animation: fadeUp .4s ease both;
+}
+.validated-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(52,167,130,.1);
+  border: 1px solid rgba(52,167,130,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.validated-text {
+  font-size: 14px;
+  color: #2a9a78;
+  font-weight: 500;
+}
+.validated-sub {
+  font-size: 12px;
+  color: #9a9180;
+  margin-top: 2px;
+}
+
+/* ──────────────────────────────────────────
+   SWITCHER D'EXEMPLES (bas de page)
+────────────────────────────────────────── */
+.examples-bar {
+  width: 100%;
+  max-width: 900px;
+  margin-top: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: fadeUp .5s .4s ease both;
+}
+.examples-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #b8b0a4;
+  white-space: nowrap;
+}
+.examples-sep { flex: 1; height: 1px; background: rgba(26,24,20,.07); }
+.example-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(26,24,20,.1);
+  background: transparent;
+  color: #9a9180;
+  font-family: 'Figtree', sans-serif;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.example-btn:hover { color: #1a1814; border-color: rgba(26,24,20,.2); }
+.example-btn.active {
+  background: #1a1814;
+  border-color: #1a1814;
+  color: #f7f5f0;
+}
+/* Bouton email réel reçu de n8n — mis en avant visuellement */
+.example-btn.btn-real {
+  border-color: rgba(232,80,80,.3);
+  color: #c84040;
+  background: rgba(232,80,80,.06);
+}
+.example-btn.btn-real.active {
+  background: #c84040;
+  border-color: #c84040;
+  color: #fff;
+}
+
+/* ──────────────────────────────────────────
+   TOAST
+────────────────────────────────────────── */
+.toast-wrap {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  background: #1a1814;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #f7f5f0;
+  box-shadow: 0 8px 32px rgba(26,24,20,.25);
+  animation: toastIn .3s cubic-bezier(.34,1.4,.64,1) both;
+  white-space: nowrap;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(12px) scale(.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <span class="logo-name">Mail<em>Mind</em></span>
+    <div class="logo-sep"></div>
+    <span class="logo-sub">Réponses IA</span>
+  </div>
+  <div class="header-right">
+    <div class="ai-indicator">
+      <div class="ai-dot"></div>
+      Claude IA actif
+    </div>
+  </div>
+</header>
+
+<!-- ── SCÈNE ── -->
+<main>
+  <div class="scene-label">
+    <span class="scene-label-text">Suggestion de réponse en attente de validation</span>
+  </div>
+
+  <div class="card-wrap">
+
+    <!-- Carte : email reçu -->
+    <div class="card card-received" id="card-received">
+      <div class="card-header">
+        <div class="card-header-left">
+          <div class="card-type">
+            <div class="card-type-dot"></div>
+            Email reçu
+          </div>
+          <div class="card-subject" id="email-subject">—</div>
+          <div class="card-meta">
+            <span>De : <strong id="email-from">—</strong></span>
+            <div class="meta-sep"></div>
+            <span id="email-time">—</span>
+          </div>
+        </div>
+        <div class="card-header-right">
+          <div class="complexity-badge" id="complexity-badge">—</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="email-text" id="email-body">—</div>
+      </div>
+    </div>
+
+    <!-- Carte : suggestion IA -->
+    <div class="card card-ai" id="card-ai">
+      <div class="ai-header">
+        <div class="ai-header-left">
+          <div class="ai-icon">✦</div>
+          <div>
+            <div class="ai-header-title">Réponse suggérée par Claude</div>
+            <div class="ai-header-sub">Modifiable avant validation</div>
+          </div>
+        </div>
+        <div class="ai-raison" id="ai-raison">—</div>
+      </div>
+
+      <div class="ai-subject-bar">
+        <span class="ai-subject-label">Objet</span>
+        <span class="ai-subject-val" id="ai-subject">—</span>
+      </div>
+
+      <div class="ai-textarea-wrap">
+        <textarea class="ai-textarea" id="ai-textarea" rows="8"></textarea>
+      </div>
+
+      <!-- Footer avec actions (visible si pending) -->
+      <div class="card-footer" id="card-footer">
+        <div class="footer-hint">
+          <span class="hint-icon">✏️</span>
+          Modifiez le texte si besoin, puis validez
+        </div>
+        <div class="actions">
+          <button class="btn btn-outline" onclick="ignorer()">Ignorer</button>
+          <button class="btn btn-validate" onclick="valider()">
+            Valider et envoyer →
+          </button>
+        </div>
+      </div>
+
+      <!-- État validé (masqué par défaut) -->
+      <div class="validated-state" id="validated-state">
+        <div class="validated-icon">✓</div>
+        <div>
+          <div class="validated-text">Réponse validée</div>
+          <div class="validated-sub">L'email sera envoyé par l'automatisation</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Switcher d'exemples -->
+  <div class="examples-bar">
+    <span class="examples-label">Exemples</span>
+    <div class="examples-sep"></div>
+    <div id="examples-buttons" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="example-btn active" onclick="loadExample(0, this)">Demande info</button>
+      <button class="example-btn" onclick="loadExample(1, this)">Négociation prix</button>
+      <button class="example-btn" onclick="loadExample(2, this)">Réclamation</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toasts -->
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// Données de démonstration
+// En production, ces données viendraient du serveur via /api/emails
+// ════════════════════════════════════════════════════════════════
+const EXAMPLES = [
+  {
+    from:          'Sophie Marchand <sophie.marchand@gmail.com>',
+    subject:       'Appartement T3 Lyon 6e — disponibilité et charges',
+    time:          'Aujourd\'hui à 09h14',
+    body:          `Bonjour,
+
+Je suis très intéressée par l'appartement T3 que vous proposez à Lyon 6e (réf. LY-4821), affiché sur SeLoger.
+
+Pourriez-vous me confirmer si le bien est toujours disponible à la visite ? Et me préciser le montant mensuel des charges de copropriété ?
+
+En vous remerciant par avance pour votre retour.
+
+Cordialement,
+Sophie Marchand`,
+    reponse:       `Bonjour Sophie,
+
+Merci pour votre message et l'intérêt que vous portez à notre appartement T3 de Lyon 6e.
+
+Je suis heureux de vous confirmer que le bien est toujours disponible. Les charges de copropriété s'élèvent à 180 € par mois, comprenant l'entretien des parties communes, le gardien et les espaces verts.
+
+Je reste à votre disposition pour organiser une visite selon vos disponibilités. Auriez-vous un créneau en fin de semaine ?
+
+Cordialement,
+L'équipe Orpi Lyon 6e`,
+    sujet_reponse: 'Re : Appartement T3 Lyon 6e — disponibilité et charges',
+    raison:        'Question simple sur disponibilité et charges — réponse directe sans négociation.',
+    complexite:    'simple'
+  },
+  {
+    from:          'Marc & Isabelle Delacroix <m.delacroix@gmail.com>',
+    subject:       'Offre d\'achat — Villa Caluire 620 000€',
+    time:          'Aujourd\'hui à 11h03',
+    body:          `Bonjour,
+
+Suite à notre visite de la villa de Caluire samedi dernier, nous sommes très séduits par le bien. Cependant, le prix affiché à 620 000 € nous semble élevé au regard des travaux à prévoir (cuisine et toiture notamment).
+
+Nous souhaiterions formuler une offre à 575 000 €. Pensez-vous que les vendeurs seraient ouverts à cette discussion ?
+
+Dans l'attente de votre retour,
+Marc et Isabelle Delacroix`,
+    reponse:       `Bonjour Marc et Isabelle,
+
+Merci pour votre retour suite à la visite de samedi — nous sommes ravis que la villa vous ait autant plu.
+
+Votre offre à 575 000 € sera transmise aux vendeurs dans les meilleurs délais. Pour votre information, les travaux de cuisine et toiture ont fait l'objet d'un devis récent estimé entre 25 000 et 35 000 €, ce qui constitue un argument solide dans la négociation.
+
+Je vous reviens avec la réponse des vendeurs d'ici demain en fin de journée.
+
+Cordialement,
+L'équipe Orpi`,
+    sujet_reponse: 'Re : Offre d\'achat — Villa Caluire',
+    raison:        'Négociation de prix — implique les vendeurs, validation agent requise avant envoi.',
+    complexite:    'complexe'
+  },
+  {
+    from:          'Cabinet Fontaine <contact@cabinetfontaine-avocat.fr>',
+    subject:       'Mise en demeure — retard remise des clés',
+    time:          'Aujourd\'hui à 13h47',
+    body:          `Bonjour,
+
+Nous représentons M. et Mme Fontaine, acquéreurs du bien situé 14 rue des Acacias, Lyon 3e.
+
+La remise des clés, initialement prévue le 2 mars, a été repoussée à deux reprises sans justification formelle de votre part. Nos clients ont engagé des frais de garde-meuble et d'hébergement provisoire.
+
+Sans régularisation sous 72 heures, nous nous verrons contraints d'engager une procédure judiciaire pour préjudice subi.
+
+Maître Claire Fontaine`,
+    reponse:       `Bonjour Maître Fontaine,
+
+Nous prenons très au sérieux la situation de M. et Mme Fontaine et vous présentons nos sincères excuses pour les désagréments causés par ce délai.
+
+Notre directeur d'agence prendra contact avec vous dans les deux heures afin de vous exposer la situation dans le détail et proposer une solution concrète, notamment concernant la prise en charge des frais engagés.
+
+Nous comprenons l'urgence de la situation et mettons tout en œuvre pour y remédier dans les meilleurs délais.
+
+Cordialement,
+Direction Orpi Lyon`,
+    sujet_reponse: 'Re : Mise en demeure — retard remise des clés',
+    raison:        'Menace de recours juridique — réponse sensible, validation par un responsable impérative.',
+    complexite:    'complexe'
+  }
+];
+
+// ════════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════════
+const BASE_URL = 'http://localhost:3001'; // serveur local
+
+// ════════════════════════════════════════════════════════════════
+// ÉTAT GLOBAL
+// ════════════════════════════════════════════════════════════════
+let currentIndex  = 0;        // index dans ALL_ITEMS (exemples + réels)
+let knownIds      = new Set(); // IDs des emails réels déjà reçus
+let emailsReels   = [];        // emails reçus depuis n8n (en tête de liste)
+
+// ALL_ITEMS = emails réels (n8n) + exemples en dur
+// Les emails réels sont toujours en premier, les exemples en dernier
+function allItems() {
+  return [...emailsReels, ...EXAMPLES];
+}
+
+// ════════════════════════════════════════════════════════════════
+// POLLING — Interroge le serveur toutes les 3 secondes
+// Si un nouvel email arrive, il s'affiche automatiquement
+// ════════════════════════════════════════════════════════════════
+async function pollEmails() {
+  try {
+    const r = await fetch(`${BASE_URL}/api/emails`);
+    if (!r.ok) return;
+    const data = await r.json();
+
+    let hasNew = false;
+    data.forEach(e => {
+      if (!knownIds.has(e.id)) {
+        knownIds.add(e.id);
+        emailsReels.unshift(e); // ajoute en tête
+        hasNew = true;
+      }
+    });
+
+    if (hasNew) {
+      // Reconstruit les boutons d'exemples pour inclure le nouvel email
+      rebuildExampleButtons();
+      // Affiche automatiquement le dernier email reçu
+      const idx = 0; // toujours en tête
+      const btns = document.querySelectorAll('.example-btn');
+      loadItem(idx, btns[idx]);
+      toast('📨', 'Nouvel email reçu depuis n8n !');
+    }
+  } catch(e) {
+    // Silencieux — le serveur peut ne pas être démarré
+  }
+}
+
+setInterval(pollEmails, 3000);
+pollEmails(); // premier appel immédiat
+
+// ════════════════════════════════════════════════════════════════
+// RECONSTRUCTION DES BOUTONS D'EXEMPLES
+// Appelée quand un nouvel email réel arrive
+// ════════════════════════════════════════════════════════════════
+function rebuildExampleButtons() {
+  const bar = document.getElementById('examples-buttons');
+  const items = allItems();
+
+  bar.innerHTML = items.map((item, i) => {
+    // Les emails réels ont un badge EN DIRECT
+    const isReal = item.source === 'n8n';
+    const label  = isReal
+      ? `🔴 En direct — ${item.from.split('<')[0].trim().split(' ')[0]}`
+      : item._btnLabel || item.subject.slice(0, 22) + (item.subject.length > 22 ? '…' : '');
+
+    return `<button
+      class="example-btn${i === currentIndex ? ' active' : ''}${isReal ? ' btn-real' : ''}"
+      onclick="loadItem(${i}, this)"
+    >${label}</button>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// CHARGEMENT D'UN ITEM (email réel OU exemple)
+// ════════════════════════════════════════════════════════════════
+function loadItem(index, btn) {
+  currentIndex = index;
+  const items = allItems();
+  const ex    = items[index];
+  if (!ex) return;
+
+  // Met à jour les boutons actifs
+  document.querySelectorAll('.example-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  // Animation de transition
+  const wrap = document.querySelector('.card-wrap');
+  wrap.style.opacity   = '0';
+  wrap.style.transform = 'translateY(8px)';
+
+  setTimeout(() => {
+    // ── Email reçu ──
+    document.getElementById('email-subject').textContent = ex.subject;
+    document.getElementById('email-from').textContent    = ex.from;
+    document.getElementById('email-time').textContent    = ex.time || '';
+    document.getElementById('email-body').textContent    = ex.body;
+
+    // Badge "EN DIRECT" si email réel, sinon badge complexité
+    const badge = document.getElementById('complexity-badge');
+    if (ex.complexite === 'complexe') {
+      badge.className   = 'complexity-badge cb-complexe';
+      badge.style = '';
+      badge.textContent = '⚠ Validation requise';
+    } else {
+      badge.className   = 'complexity-badge cb-simple';
+      badge.style = '';
+      badge.textContent = '⚡ Réponse automatique';
+    }
+
+    // ── Suggestion IA ──
+    document.getElementById('ai-subject').textContent = ex.sujet_reponse;
+    document.getElementById('ai-raison').textContent  = ex.raison;
+    document.getElementById('ai-textarea').value      = ex.reponse;
+    document.getElementById('ai-textarea').disabled   = false;
+
+    // ── Footer selon complexité ──
+    const footer    = document.getElementById('card-footer');
+    const validEl   = document.getElementById('validated-state');
+    validEl.style.display = 'none';
+    footer.style.display  = 'flex';
+
+    if (ex.complexite === 'simple' && ex.source !== 'n8n') {
+      footer.innerHTML = `
+        <div class="footer-hint">
+          <span class="hint-icon">⚡</span>
+          Envoyé automatiquement — affiché pour information
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#2a9a78;background:rgba(52,167,130,.07);border:1px solid rgba(52,167,130,.2);padding:7px 16px;border-radius:8px;">
+          ✓ Traité automatiquement
+        </div>`;
+      document.getElementById('ai-textarea').disabled = true;
+    } else {
+      footer.innerHTML = `
+        <div class="footer-hint">
+          <span class="hint-icon">✏️</span>
+          Modifiez le texte si besoin, puis validez
+        </div>
+        <div class="actions">
+          <button class="btn btn-outline" onclick="ignorer()">Ignorer</button>
+          <button class="btn btn-validate" onclick="valider()">Valider et envoyer →</button>
+        </div>`;
+    }
+
+    // Ré-anime
+    wrap.style.transition = 'all .35s cubic-bezier(.34,1.2,.64,1)';
+    wrap.style.opacity    = '1';
+    wrap.style.transform  = 'translateY(0)';
+  }, 180);
+}
+
+// Compatibilité avec les boutons HTML inline (exemples en dur)
+function loadExample(index, btn) {
+  // Décale l'index car les emails réels sont en tête
+  loadItem(emailsReels.length + index, btn);
+}
+
+// ════════════════════════════════════════════════════════════════
+// ACTIONS
+// ════════════════════════════════════════════════════════════════
+
+function valider() {
+  document.getElementById('ai-textarea').disabled       = true;
+  document.getElementById('card-footer').style.display  = 'none';
+  document.getElementById('validated-state').style.display = 'flex';
+  toast('✅', 'Réponse validée — envoi déclenché');
+}
+
+function ignorer() {
+  toast('⏭', 'Email ignoré');
+  const items = allItems();
+  const next  = (currentIndex + 1) % items.length;
+  const btns  = document.querySelectorAll('.example-btn');
+  loadItem(next, btns[next]);
+}
+
+// ════════════════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════════════════
+function toast(ico, msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span>${ico}</span><span>${msg}</span>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(8px)'; }, 2800);
+  setTimeout(() => el.remove(), 3300);
+}
+
+// ════════════════════════════════════════════════════════════════
+// INIT — Ajoute les labels courts aux exemples et charge le premier
+// ════════════════════════════════════════════════════════════════
+EXAMPLES[0]._btnLabel = 'Demande info';
+EXAMPLES[1]._btnLabel = 'Négociation prix';
+EXAMPLES[2]._btnLabel = 'Réclamation';
+
+// Charge le premier exemple au démarrage
+loadExample(0, document.querySelector('.example-btn'));
+</script>
+</body>
+</html>
