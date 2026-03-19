@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>LeadFlow — Hub</title>
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Figtree:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+        <style>
+            /* ══════════════════════════════════════════
+            RESET & VARIABLES
+            ══════════════════════════════════════════ */
+            *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+            :root {
+            --cream:  #f7f4ee;
+            --cream2: #f0ebe0;
+            --cream3: #e8e0d0;
+            --white:  #ffffff;
+            --ink:    #1c1a16;
+            --ink2:   #2e2b24;
+            --ink3:   #4a4640;
+            --muted:  #8a8478;
+            --pale:   #b8b0a0;
+            --gold:   #b8893a;
+            --gold2:  #d4a853;
+            --gold3:  #f0cc7a;
+            --green:  #2a8a60;
+            --green2: #40aa80;
+            --red:    #c84040;
+            --orange: #c87020;
+            --blue:   #3a70c8;
+            --border: #e0d8c8;
+            --border2:#d0c8b8;
+            }
+
+            html, body { height: 100%; overflow: hidden; }
+            body {
+            font-family: 'Figtree', sans-serif;
+            background: var(--cream);
+            color: var(--ink);
+            font-size: 13px;
+            line-height: 1.6;
+            display: flex;
+            flex-direction: column;
+            }
+
+            /* ══════════════════════════════════════════
+            HEADER GLOBAL
+            ══════════════════════════════════════════ */
+            .hub-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 28px;
+            height: 54px;
+            background: var(--ink);
+            flex-shrink: 0;
+            z-index: 100;
+            position: relative;
+            }
+
+            .logo {
+            display: flex; align-items: center; gap: 12px;
+            }
+            .logo-mark {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            }
+            .logo-name {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 20px; font-weight: 400;
+            color: var(--cream);
+            letter-spacing: -.2px;
+            }
+            .logo-name em { font-style: italic; color: var(--gold2); }
+            .logo-tag {
+            font-size: 9px; color: rgba(247,244,238,.35);
+            letter-spacing: 2.5px; text-transform: uppercase;
+            margin-top: 1px;
+            }
+
+            .header-center {
+            position: absolute; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 4px;
+            }
+            .nav-tab {
+            display: flex; align-items: center; gap: 7px;
+            padding: 5px 14px;
+            border-radius: 8px;
+            font-size: 11.5px; font-weight: 500;
+            color: rgba(247,244,238,.45);
+            cursor: pointer;
+            transition: all .2s;
+            border: none; background: none;
+            font-family: 'Figtree', sans-serif;
+            white-space: nowrap;
+            }
+            .nav-tab:hover { color: rgba(247,244,238,.8); background: rgba(247,244,238,.06); }
+            .nav-tab.active {
+            color: var(--cream);
+            background: rgba(184,137,58,.15);
+            border: 1px solid rgba(184,137,58,.25);
+            }
+            .nav-tab .tab-ico { font-size: 13px; }
+            .nav-tab .tab-badge {
+            background: var(--gold);
+            color: var(--ink);
+            font-size: 9px; font-weight: 700;
+            padding: 1px 6px; border-radius: 10px;
+            font-family: 'DM Mono', monospace;
+            }
+            .nav-tab .tab-badge.red { background: var(--red); color: white; }
+            .nav-tab .tab-badge.green { background: var(--green); color: white; }
+
+            .header-right {
+            display: flex; align-items: center; gap: 10px;
+            }
+
+            /* Toggle démo / réel */
+            .demo-toggle {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 12px;
+            background: rgba(247,244,238,.06);
+            border: 1px solid rgba(247,244,238,.12);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all .2s;
+            }
+            .demo-toggle:hover { background: rgba(247,244,238,.1); }
+            .demo-toggle-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            transition: background .3s;
+            }
+            .demo-toggle-dot.demo { background: var(--gold2); }
+            .demo-toggle-dot.live { background: var(--green2); animation: blink 2s ease-in-out infinite; }
+            @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.3;} }
+            .demo-toggle-label { font-size: 11px; color: rgba(247,244,238,.6); font-weight: 500; }
+
+            .btn-hub {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 14px;
+            background: linear-gradient(135deg, var(--gold), var(--gold2));
+            color: var(--ink);
+            border: none; border-radius: 7px;
+            font-family: 'Figtree', sans-serif;
+            font-size: 11.5px; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+            }
+            .btn-hub:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(184,137,58,.3); }
+
+
+            /* ══════════════════════════════════════════
+            CORPS PRINCIPAL
+            Vue hub (cards) OU vue outil (iframe)
+            ══════════════════════════════════════════ */
+            .main-body {
+            flex: 1; overflow: hidden;
+            position: relative;
+            }
+
+
+            /* ══════════════════════════════════════════
+            VUE HUB — écran d'accueil
+            ══════════════════════════════════════════ */
+            #view-hub {
+            height: 100%;
+            overflow-y: auto;
+            padding: 32px 36px;
+            display: flex; flex-direction: column; gap: 28px;
+            }
+            #view-hub::-webkit-scrollbar { width: 4px; }
+            #view-hub::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+            .hub-welcome {
+            display: flex; align-items: flex-end; justify-content: space-between;
+            }
+            .hub-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 30px; font-weight: 300;
+            color: var(--ink); line-height: 1.2;
+            }
+            .hub-title strong { font-weight: 600; }
+            .hub-title em { font-style: italic; color: var(--gold); }
+            .hub-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; font-weight: 300; }
+            .hub-date {
+            font-size: 11px; color: var(--pale);
+            font-family: 'DM Mono', monospace;
+            text-align: right;
+            }
+
+            /* Grille 4 tuiles */
+            .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            }
+
+            .tool-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all .25s;
+            position: relative;
+            overflow: hidden;
+            display: flex; flex-direction: column; gap: 0;
+            }
+            .tool-card::before {
+            content: '';
+            position: absolute; top: 0; left: 0; right: 0;
+            height: 3px; border-radius: 16px 16px 0 0;
+            opacity: 0; transition: opacity .25s;
+            }
+            .tc-leads::before  { background: linear-gradient(90deg, var(--blue), #5a90e8); }
+            .tc-mail::before   { background: linear-gradient(90deg, var(--gold), var(--gold2)); }
+            .tc-mandat::before { background: linear-gradient(90deg, var(--green), var(--green2)); }
+            .tc-pige::before   { background: linear-gradient(90deg, var(--orange), #e09040); }
+
+            .tool-card:hover {
+            border-color: var(--border2);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(28,26,22,.08);
+            }
+            .tool-card:hover::before { opacity: 1; }
+
+            .tc-icon {
+            width: 44px; height: 44px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px; margin-bottom: 14px; flex-shrink: 0;
+            }
+            .tc-leads  .tc-icon { background: rgba(58,112,200,.08); border: 1px solid rgba(58,112,200,.18); }
+            .tc-mail   .tc-icon { background: rgba(184,137,58,.08); border: 1px solid rgba(184,137,58,.18); }
+            .tc-mandat .tc-icon { background: rgba(42,138,96,.08); border: 1px solid rgba(42,138,96,.18); }
+            .tc-pige   .tc-icon { background: rgba(200,112,32,.07); border: 1px solid rgba(200,112,32,.18); }
+
+            .tc-name {
+            font-size: 14px; font-weight: 600; color: var(--ink);
+            margin-bottom: 3px;
+            }
+            .tc-desc {
+            font-size: 11.5px; color: var(--muted);
+            font-weight: 300; line-height: 1.5;
+            margin-bottom: 16px; flex: 1;
+            }
+
+            /* Métriques de la tuile */
+            .tc-metrics {
+            display: flex; flex-direction: column; gap: 6px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            }
+            .tc-metric {
+            display: flex; align-items: center; justify-content: space-between;
+            }
+            .tc-metric-label { font-size: 10px; color: var(--muted); }
+            .tc-metric-val {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px; font-weight: 500; color: var(--ink);
+            }
+            .tc-metric-val.green { color: var(--green); }
+            .tc-metric-val.gold  { color: var(--gold); }
+            .tc-metric-val.red   { color: var(--red); }
+            .tc-metric-val.blue  { color: var(--blue); }
+
+            .tc-cta {
+            margin-top: 14px;
+            width: 100%;
+            padding: 8px;
+            border-radius: 9px;
+            font-family: 'Figtree', sans-serif;
+            font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: all .2s;
+            border: none;
+            text-align: center;
+            }
+            .tc-leads  .tc-cta { background: rgba(58,112,200,.08);  color: var(--blue);   border: 1px solid rgba(58,112,200,.2)  !important; }
+            .tc-mail   .tc-cta { background: rgba(184,137,58,.08);  color: var(--gold);   border: 1px solid rgba(184,137,58,.2)  !important; }
+            .tc-mandat .tc-cta { background: rgba(42,138,96,.08);   color: var(--green);  border: 1px solid rgba(42,138,96,.2)   !important; }
+            .tc-pige   .tc-cta { background: rgba(200,112,32,.07);  color: var(--orange); border: 1px solid rgba(200,112,32,.2)  !important; }
+            .tc-cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+            /* Badge statut */
+            .tc-status {
+            position: absolute; top: 16px; right: 16px;
+            display: flex; align-items: center; gap: 5px;
+            font-size: 9.5px; font-weight: 600;
+            padding: 2px 8px; border-radius: 10px;
+            }
+            .ts-active {
+            background: rgba(42,138,96,.08);
+            color: var(--green);
+            border: 1px solid rgba(42,138,96,.2);
+            }
+            .ts-demo {
+            background: rgba(184,137,58,.08);
+            color: var(--gold);
+            border: 1px solid rgba(184,137,58,.2);
+            }
+            .ts-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            }
+            .ts-active .ts-dot { background: var(--green); animation: blink 2s ease-in-out infinite; }
+            .ts-demo   .ts-dot { background: var(--gold2); }
+
+
+            /* ══════════════════════════════════════════
+            SECTION DU BAS — Timeline + Stats globales
+            ══════════════════════════════════════════ */
+            .hub-bottom {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 16px;
+            }
+
+            /* Timeline d'activité globale */
+            .activity-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+            }
+            .card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            }
+            .card-title {
+            font-size: 11px; font-weight: 600; color: var(--ink2);
+            text-transform: uppercase; letter-spacing: 1.5px;
+            display: flex; align-items: center; gap: 8px;
+            }
+            .card-meta { font-size: 10px; color: var(--pale); font-family: 'DM Mono', monospace; }
+
+            .activity-list {
+            padding: 8px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            }
+            .activity-list::-webkit-scrollbar { width: 3px; }
+            .activity-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+            .activity-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 8px 18px;
+            transition: background .15s;
+            animation: fadeUp .3s ease;
+            }
+            @keyframes fadeUp { from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);} }
+            .activity-item:hover { background: var(--cream); }
+
+            .ai-ico {
+            width: 28px; height: 28px; border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; flex-shrink: 0; margin-top: 1px;
+            }
+            .ai-leads  { background: rgba(58,112,200,.07); border: 1px solid rgba(58,112,200,.15); }
+            .ai-mail   { background: rgba(184,137,58,.07); border: 1px solid rgba(184,137,58,.15); }
+            .ai-mandat { background: rgba(42,138,96,.07);  border: 1px solid rgba(42,138,96,.15);  }
+            .ai-pige   { background: rgba(200,112,32,.07); border: 1px solid rgba(200,112,32,.15); }
+
+            .ai-body { flex: 1; }
+            .ai-text { font-size: 12px; color: var(--ink3); line-height: 1.4; }
+            .ai-text strong { font-weight: 500; color: var(--ink); }
+            .ai-time { font-size: 10px; color: var(--pale); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+            /* Stats globales MRR */
+            .global-stats-card {
+            background: var(--ink);
+            border-radius: 14px;
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 14px;
+            position: relative; overflow: hidden;
+            }
+            .global-stats-card::before {
+            content: '';
+            position: absolute; top: -60px; right: -60px;
+            width: 180px; height: 180px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(184,137,58,.1) 0%, transparent 70%);
+            }
+            .gs-title {
+            font-size: 9px; color: var(--gold);
+            text-transform: uppercase; letter-spacing: 2.5px; font-weight: 600;
+            }
+            .gs-big-val {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 52px; font-weight: 300;
+            color: var(--gold2); line-height: 1;
+            margin: 6px 0 4px;
+            }
+            .gs-big-val .gs-pct { font-size: 24px; color: rgba(212,168,83,.7); }
+            .gs-big-label { font-size: 11px; color: rgba(247,244,238,.45); line-height: 1.5; margin-bottom: 4px; }
+            .gs-progress-wrap {
+            height: 5px; background: rgba(255,255,255,.08);
+            border-radius: 3px; overflow: hidden;
+            }
+            .gs-progress-bar {
+            height: 100%; border-radius: 3px;
+            background: linear-gradient(90deg, var(--gold), var(--gold2));
+            transition: width .6s ease;
+            }
+            .gs-target { font-size: 10px; color: rgba(247,244,238,.35); }
+            .gs-divider { height: 1px; background: rgba(255,255,255,.06); }
+            .gs-row {
+            display: flex; justify-content: space-between; align-items: center;
+            }
+            .gs-row-label { font-size: 11px; color: rgba(247,244,238,.45); }
+            .gs-row-val   { font-size: 13px; font-weight: 500; color: rgba(247,244,238,.85); font-family: 'DM Mono', monospace; }
+            .gs-row-val.gold  { color: var(--gold2); }
+            .gs-row-val.green { color: var(--green2); }
+
+
+            /* ══════════════════════════════════════════
+            VUE OUTIL — iframe plein écran
+            ══════════════════════════════════════════ */
+            .tool-view {
+            display: none;
+            height: 100%;
+            flex-direction: column;
+            }
+            .tool-view.active { display: flex; }
+
+            .tool-topbar {
+            display: flex; align-items: center; gap: 12px;
+            padding: 0 20px;
+            height: 42px;
+            background: var(--cream2);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            }
+            .back-btn {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--muted);
+            cursor: pointer; background: none; border: none;
+            font-family: 'Figtree', sans-serif;
+            transition: color .15s; padding: 0;
+            }
+            .back-btn:hover { color: var(--ink); }
+            .tool-topbar-sep { color: var(--border2); }
+            .tool-topbar-name {
+            font-size: 12px; font-weight: 500; color: var(--ink3);
+            }
+            .tool-topbar-url {
+            font-size: 10px; color: var(--pale);
+            font-family: 'DM Mono', monospace;
+            margin-left: auto;
+            }
+            .tool-iframe {
+            flex: 1; border: none;
+            width: 100%; height: 100%;
+            }
+
+
+            /* ══════════════════════════════════════════
+            TOAST
+            ══════════════════════════════════════════ */
+            .toast-wrap { position: fixed; bottom: 20px; right: 20px; z-index: 500; display: flex; flex-direction: column; gap: 6px; }
+            .toast { background: var(--ink); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; min-width: 240px; animation: toastIn .25s ease; box-shadow: 0 8px 28px rgba(28,26,22,.25); }
+            @keyframes toastIn { from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:translateX(0);} }
+            .toast-t { font-size: 12px; font-weight: 500; color: #f7f4ee; }
+            .toast-d { font-size: 11px; color: rgba(247,244,238,.5); margin-top: 1px; }
+        </style>
+    </head>
+    <body>
+
+        <!-- ══════════════════════════════════════════
+            HEADER GLOBAL
+            ══════════════════════════════════════════ -->
+        <header class="hub-header">
+            <div class="logo">
+                <div class="logo-mark">⚡</div>
+                <div>
+                <div class="logo-name">Lead<em>Flow</em></div>
+                <div class="logo-tag">Plateforme</div>
+                </div>
+            </div>
+
+            <!-- Navigation centrale — tabs des 4 outils + hub -->
+            <div class="header-center">
+                <button class="nav-tab active" onclick="showHub()" id="tab-hub">
+                <span class="tab-ico">⊞</span> Hub
+                </button>
+                <button class="nav-tab" onclick="openTool('leads')" id="tab-leads">
+                <span class="tab-ico">📊</span> Leads
+                <span class="tab-badge red" id="badge-leads">0</span>
+                </button>
+                <button class="nav-tab" onclick="openTool('mail')" id="tab-mail">
+                <span class="tab-ico">✉️</span> MailMind
+                <span class="tab-badge" id="badge-mail">0</span>
+                </button>
+                <button class="nav-tab" onclick="openTool('mandat')" id="tab-mandat">
+                <span class="tab-ico">📋</span> Mandat
+                </button>
+                <button class="nav-tab" onclick="openTool('pige')" id="tab-pige">
+                <span class="tab-ico">🔍</span> Pige
+                <span class="tab-badge green" id="badge-pige">0</span>
+                </button>
+            </div>
+
+            <div class="header-right">
+                <!-- Toggle démo / mode réel -->
+                <div class="demo-toggle" onclick="toggleDemo()" id="demo-toggle">
+                <div class="demo-toggle-dot demo" id="demo-dot"></div>
+                <span class="demo-toggle-label" id="demo-label">Mode démo</span>
+                </div>
+            </div>
+        </header>
+
+
+        <!-- ══════════════════════════════════════════
+            CORPS PRINCIPAL
+            ══════════════════════════════════════════ -->
+        <div class="main-body">
+
+            <!-- VUE HUB — affiché par défaut -->
+            <div id="view-hub">
+
+                <!-- Titre de bienvenue -->
+                <div class="hub-welcome">
+                <div>
+                    <div class="hub-title">
+                    Votre <strong>tableau de bord</strong><br>
+                    <em>LeadFlow</em> — Agence immobilière
+                    </div>
+                    <div class="hub-subtitle">4 outils actifs · Tout votre pipeline immobilier en un seul endroit</div>
+                </div>
+                <div class="hub-date" id="hub-date">—</div>
+                </div>
+
+                <!-- Grille des 4 tuiles outils -->
+                <div class="tools-grid">
+
+                <!-- Tuile 1 — Dashboard Leads -->
+                <div class="tool-card tc-leads" onclick="openTool('leads')">
+                    <div class="tc-status ts-active" id="status-leads">
+                    <div class="ts-dot"></div> Actif
+                    </div>
+                    <div class="tc-icon">📊</div>
+                    <div class="tc-name">Suivi des leads</div>
+                    <div class="tc-desc">Réponse automatique en 30s, scoring IA, relances J+2 et J+7. Aucun lead ne reste sans réponse.</div>
+                    <div class="tc-metrics">
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Leads aujourd'hui</span>
+                        <span class="tc-metric-val blue" id="m-leads-today">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">En attente</span>
+                        <span class="tc-metric-val red" id="m-leads-pending">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Taux de réponse</span>
+                        <span class="tc-metric-val green" id="m-leads-rate">—</span>
+                    </div>
+                    </div>
+                    <button class="tc-cta">Ouvrir le dashboard →</button>
+                </div>
+
+                <!-- Tuile 2 — MailMind -->
+                <div class="tool-card tc-mail" onclick="openTool('mail')">
+                    <div class="tc-status ts-active" id="status-mail">
+                    <div class="ts-dot"></div> Actif
+                    </div>
+                    <div class="tc-icon">✉️</div>
+                    <div class="tc-name">MailMind</div>
+                    <div class="tc-desc">L'IA analyse chaque email entrant et rédige une réponse en 10 secondes. Validation en un clic pour les cas complexes.</div>
+                    <div class="tc-metrics">
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Emails traités</span>
+                        <span class="tc-metric-val gold" id="m-mail-total">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Auto-envoyés</span>
+                        <span class="tc-metric-val green" id="m-mail-auto">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">À valider</span>
+                        <span class="tc-metric-val red" id="m-mail-pending">—</span>
+                    </div>
+                    </div>
+                    <button class="tc-cta">Ouvrir MailMind →</button>
+                </div>
+
+                <!-- Tuile 3 — Dossier Mandat -->
+                <div class="tool-card tc-mandat" onclick="openTool('mandat')">
+                    <div class="tc-status ts-active" id="status-mandat">
+                    <div class="ts-dot"></div> Actif
+                    </div>
+                    <div class="tc-icon">📋</div>
+                    <div class="tc-name">Dossier mandat</div>
+                    <div class="tc-desc">Génère un dossier PDF professionnel avec données DVF réelles en 2 minutes. Pour arriver mieux préparé que vos concurrents.</div>
+                    <div class="tc-metrics">
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Dossiers générés</span>
+                        <span class="tc-metric-val green" id="m-mandat-total">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Cette semaine</span>
+                        <span class="tc-metric-val gold" id="m-mandat-week">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Dept. couverts</span>
+                        <span class="tc-metric-val" id="m-mandat-dept">69</span>
+                    </div>
+                    </div>
+                    <button class="tc-cta">Générer un dossier →</button>
+                </div>
+
+                <!-- Tuile 4 — Pige Automatisée -->
+                <div class="tool-card tc-pige" onclick="openTool('pige')">
+                    <div class="tc-status ts-active" id="status-pige">
+                    <div class="ts-dot"></div> Actif
+                    </div>
+                    <div class="tc-icon">🔍</div>
+                    <div class="tc-name">Pige automatisée</div>
+                    <div class="tc-desc">Scrape PAP et LeBonCoin chaque matin à 8h. Analyse IA de chaque bien, score de potentiel et mail d'approche prêt à envoyer.</div>
+                    <div class="tc-metrics">
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Biens analysés</span>
+                        <span class="tc-metric-val" id="m-pige-total">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Fort potentiel</span>
+                        <span class="tc-metric-val green" id="m-pige-fort">—</span>
+                    </div>
+                    <div class="tc-metric">
+                        <span class="tc-metric-label">Mails envoyés</span>
+                        <span class="tc-metric-val gold" id="m-pige-sent">—</span>
+                    </div>
+                    </div>
+                    <button class="tc-cta">Voir la pige →</button>
+                </div>
+
+                </div>
+
+                <!-- Bas du hub : timeline + stats globales -->
+                <div class="hub-bottom">
+
+                <!-- Timeline d'activité globale -->
+                <div class="activity-card">
+                    <div class="card-head">
+                    <div class="card-title">
+                        <div class="ts-dot" style="width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s ease-in-out infinite;"></div>
+                        Activité récente
+                    </div>
+                    <div class="card-meta" id="activity-count">—</div>
+                    </div>
+                    <div class="activity-list" id="activity-list">
+                    <!-- Injecté par JS -->
+                    </div>
+                </div>
+
+                <!-- Stats globales -->
+                <!-- Métriques performance agence — visibles par le prospect -->
+                <div class="global-stats-card">
+                    <div class="gs-title">Performance de votre agence</div>
+                    <div class="gs-big-val"><span id="gs-rate-val">94</span><span class="gs-pct">%</span></div>
+                    <div class="gs-big-label">de leads contactés en moins de 30 secondes</div>
+                    <div class="gs-progress-wrap" style="margin-top:10px;">
+                    <div class="gs-progress-bar" id="gs-bar" style="width:94%"></div>
+                    </div>
+                    <div class="gs-target">Avant LeadFlow : <span style="color:rgba(200,64,64,.8)">moins de 12%</span></div>
+                    <div class="gs-divider"></div>
+                    <div class="gs-row">
+                    <span class="gs-row-label">Leads traités ce mois</span>
+                    <span class="gs-row-val gold" id="gs-leads-total">—</span>
+                    </div>
+                    <div class="gs-row">
+                    <span class="gs-row-label">Temps de réponse moyen</span>
+                    <span class="gs-row-val green" id="gs-response-time">28s</span>
+                    </div>
+                    <div class="gs-row">
+                    <span class="gs-row-label">Biens pigés ce mois</span>
+                    <span class="gs-row-val" id="gs-biens">—</span>
+                    </div>
+                    <div class="gs-row">
+                    <span class="gs-row-label">Mails d'approche envoyés</span>
+                    <span class="gs-row-val gold" id="gs-mails-sent">—</span>
+                    </div>
+                    <div class="gs-row">
+                    <span class="gs-row-label">Dossiers mandats générés</span>
+                    <span class="gs-row-val" id="gs-mandats">—</span>
+                    </div>
+                </div>
+
+                </div>
+            </div><!-- /view-hub -->
+
+
+            <!-- VUE LEADS -->
+            <div class="tool-view" id="view-leads">
+                <div class="tool-topbar">
+                <button class="back-btn" onclick="showHub()">← Retour au hub</button>
+                <span class="tool-topbar-sep">/</span>
+                <span class="tool-topbar-name">📊 Suivi des leads</span>
+                <span class="tool-topbar-url" id="url-leads">—</span>
+                </div>
+                <iframe class="tool-iframe" id="iframe-leads" src="about:blank" title="Dashboard Leads"></iframe>
+            </div>
+
+            <!-- VUE MAILMIND -->
+            <div class="tool-view" id="view-mail">
+                <div class="tool-topbar">
+                <button class="back-btn" onclick="showHub()">← Retour au hub</button>
+                <span class="tool-topbar-sep">/</span>
+                <span class="tool-topbar-name">✉️ MailMind</span>
+                <span class="tool-topbar-url" id="url-mail">—</span>
+                </div>
+                <iframe class="tool-iframe" id="iframe-mail" src="about:blank" title="MailMind"></iframe>
+            </div>
+
+            <!-- VUE MANDAT -->
+            <div class="tool-view" id="view-mandat">
+                <div class="tool-topbar">
+                <button class="back-btn" onclick="showHub()">← Retour au hub</button>
+                <span class="tool-topbar-sep">/</span>
+                <span class="tool-topbar-name">📋 Dossier mandat</span>
+                <span class="tool-topbar-url" id="url-mandat">—</span>
+                </div>
+                <iframe class="tool-iframe" id="iframe-mandat" src="about:blank" title="Dossier Mandat"></iframe>
+            </div>
+
+            <!-- VUE PIGE -->
+            <div class="tool-view" id="view-pige">
+                <div class="tool-topbar">
+                <button class="back-btn" onclick="showHub()">← Retour au hub</button>
+                <span class="tool-topbar-sep">/</span>
+                <span class="tool-topbar-name">🔍 Pige automatisée</span>
+                <span class="tool-topbar-url" id="url-pige">—</span>
+                </div>
+                <iframe class="tool-iframe" id="iframe-pige" src="about:blank" title="Pige"></iframe>
+            </div>
+
+        </div><!-- /main-body -->
+
+        <div class="toast-wrap" id="toasts"></div>
+
+        <script>
+            // ══════════════════════════════════════════════════════════════
+            // CONFIGURATION
+            // Modifie ces URLs pour pointer vers tes vrais services Railway
+            // ══════════════════════════════════════════════════════════════
+            const CONFIG = {
+            // URLs des outils en production (Railway)
+            // Remplace chaque URL par l'URL Railway correspondante
+            // Ex: 'https://leadflow-leads.railway.app'
+            prod: {
+                leads:  '/leads',    // chemin relatif si tout est sur le même serveur
+                mail:   '/mail',
+                mandat: '/mandat',
+                pige:   '/pige',
+                api:    ''           // base URL de l'API
+            },
+            // URLs en mode démo (peut pointer sur les mêmes ou des stubs)
+            demo: {
+                leads:  null,   // null = affiche la vue démo intégrée
+                mail:   null,
+                mandat: null,
+                pige:   null,
+                api:    null
+            }
+            };
+
+            // ══════════════════════════════════════════════════════════════
+            // DONNÉES DE DÉMO
+            // ══════════════════════════════════════════════════════════════
+            const DEMO_DATA = {
+            metrics: {
+                leads:  { today: 7,  pending: 3,  rate: '94%' },
+                mail:   { total: 42, auto: 38,    pending: 4  },
+                mandat: { total: 12, week: 3,     dept: '69'  },
+                pige:   { total: 23, fort: 8,     sent: 5     }
+            },
+            mrr: 1740,
+            clients: 6,
+            activity: [
+                { tool:'leads',  ico:'ai-leads',  icon:'📊', text:'<strong>Nouveau lead chaud</strong> — Jean Dupont via SeLoger',            time:'Il y a 4 min'  },
+                { tool:'pige',   ico:'ai-pige',   icon:'🔍', text:'<strong>5 nouveaux biens</strong> analysés ce matin sur PAP',              time:'Il y a 12 min' },
+                { tool:'mail',   ico:'ai-mail',   icon:'✉️', text:'<strong>Email répondu</strong> automatiquement — demande de visite',       time:'Il y a 28 min' },
+                { tool:'leads',  ico:'ai-leads',  icon:'📊', text:'<strong>Relance J+2</strong> envoyée — Marie Lambert, T3 Lyon 6e',          time:'Il y a 1h'     },
+                { tool:'mandat', ico:'ai-mandat', icon:'📋', text:'<strong>Dossier mandat généré</strong> — 14 rue Leynaud, Lyon 1er',        time:'Il y a 2h'     },
+                { tool:'mail',   ico:'ai-mail',   icon:'✉️', text:'<strong>Email complexe</strong> — validation requise (négociation prix)',  time:'Il y a 3h'     },
+                { tool:'pige',   ico:'ai-pige',   icon:'🔍', text:'<strong>Mail d\'approche envoyé</strong> — T4 Croix-Rousse, potentiel fort',time:'Il y a 3h'    },
+                { tool:'leads',  ico:'ai-leads',  icon:'📊', text:'<strong>Lead converti</strong> — visite planifiée pour Thomas Martin',     time:'Hier'          },
+            ]
+            };
+
+            // ══════════════════════════════════════════════════════════════
+            // ÉTAT DE L'APPLICATION
+            // ══════════════════════════════════════════════════════════════
+            let isDemoMode = true;        // true = démo, false = production
+            let currentTool = null;       // outil actuellement ouvert
+
+            // ══════════════════════════════════════════════════════════════
+            // INITIALISATION
+            // ══════════════════════════════════════════════════════════════
+            function init() {
+            // Date du jour dans le header
+            document.getElementById('hub-date').innerHTML =
+                new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })
+                + '<br><span style="font-size:9px;color:var(--pale)">Dernière synchro : ' + new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone: 'Europe/Paris' }) + '</span>';
+
+            loadData();
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // CHARGEMENT DES DONNÉES
+            // En mode démo : utilise DEMO_DATA
+            // En mode prod : appelle les APIs réelles
+            // ══════════════════════════════════════════════════════════════
+            async function loadData() {
+            if (isDemoMode) {
+                applyMetrics(DEMO_DATA.metrics);
+                renderActivity(DEMO_DATA.activity);
+                applyMRR(134, DEMO_DATA.clients);
+                updateBadges(DEMO_DATA.metrics);
+            } else {
+                // Mode production — appelle les APIs réelles
+                try {
+                // Leads
+                const leadsRes = await fetch(`${CONFIG.prod.api}/api/leads`);
+                const leads    = await leadsRes.json();
+                // Pige
+                const pigeRes  = await fetch(`${CONFIG.prod.api}/api/pige/biens`);
+                const biens    = await pigeRes.json();
+                // Construit les métriques depuis les vraies données
+                const metrics = {
+                    leads: {
+                    today:   leads.filter(l => isToday(l.date)).length,
+                    pending: leads.filter(l => l.statut === 'new').length,
+                    rate:    leads.length > 0 ? Math.round(leads.filter(l => l.statut !== 'new').length / leads.length * 100) + '%' : '—'
+                    },
+                    pige: {
+                    total: biens.length,
+                    fort:  biens.filter(b => b.potentiel === 'fort').length,
+                    sent:  biens.filter(b => b.statut === 'sent' || b.statut === 'contact').length
+                    },
+                    mail:   { total: '—', auto: '—', pending: '—' },
+                    mandat: { total: '—', week: '—', dept: '69'   }
+                };
+                applyMetrics(metrics);
+                updateBadges(metrics);
+                // Activité synthétique depuis les vraies données
+                const activity = [
+                    ...leads.slice(0, 3).map(l => ({
+                    tool: 'leads', ico: 'ai-leads', icon: '📊',
+                    text: `<strong>Lead</strong> — ${l.prenom || ''} ${l.nom || ''} via ${l.source || 'plateforme'}`,
+                    time: l.date || '—'
+                    })),
+                    ...biens.slice(0, 3).map(b => ({
+                    tool: 'pige', ico: 'ai-pige', icon: '🔍',
+                    text: `<strong>Bien analysé</strong> — ${b.titre || b.adresse || '—'}`,
+                    time: b.date || '—'
+                    })),
+                ];
+                renderActivity(activity);
+                } catch(e) {
+                toast('⚠️', 'Serveur non disponible', 'Passage en mode démo');
+                isDemoMode = true;
+                updateDemoUI();
+                loadData();
+                }
+            }
+            }
+
+            // Vérifie si une date est aujourd'hui
+            function isToday(dateStr) {
+            if (!dateStr) return false;
+            const d = new Date(dateStr);
+            const t = new Date();
+            return d.getDate() === t.getDate() && d.getMonth() === t.getMonth();
+            }
+
+            // ── Applique les métriques aux tuiles ────────────────────────
+            function applyMetrics(m) {
+            document.getElementById('m-leads-today').textContent   = m.leads.today;
+            document.getElementById('m-leads-pending').textContent = m.leads.pending;
+            document.getElementById('m-leads-rate').textContent    = m.leads.rate;
+            document.getElementById('m-mail-total').textContent    = m.mail.total;
+            document.getElementById('m-mail-auto').textContent     = m.mail.auto;
+            document.getElementById('m-mail-pending').textContent  = m.mail.pending;
+            document.getElementById('m-mandat-total').textContent  = m.mandat.total;
+            document.getElementById('m-mandat-week').textContent   = m.mandat.week;
+            document.getElementById('m-mandat-dept').textContent   = m.mandat.dept;
+            document.getElementById('m-pige-total').textContent    = m.pige.total;
+            document.getElementById('m-pige-fort').textContent     = m.pige.fort;
+            document.getElementById('m-pige-sent').textContent     = m.pige.sent;
+            }
+
+            // ── Badges dans les tabs de navigation ───────────────────────
+            function updateBadges(m) {
+            document.getElementById('badge-leads').textContent = m.leads.pending || 0;
+            document.getElementById('badge-mail').textContent  = m.mail.pending  || 0;
+            document.getElementById('badge-pige').textContent  = m.pige.fort     || 0;
+            }
+
+            // ── Timeline d'activité ───────────────────────────────────────
+            function renderActivity(items) {
+            document.getElementById('activity-count').textContent = items.length + ' événements';
+            document.getElementById('activity-list').innerHTML = items.map(a => `
+                <div class="activity-item">
+                <div class="ai-ico ${a.ico}">${a.icon}</div>
+                <div class="ai-body">
+                    <div class="ai-text">${a.text}</div>
+                    <div class="ai-time">${a.time}</div>
+                </div>
+                </div>`).join('');
+            }
+
+            // ── MRR et stats globales ────────────────────────────────────
+            function applyMRR(mrr, clients) {
+            // Affiche les métriques performance agence (pas de MRR — vue client)
+            document.getElementById('gs-leads-total').textContent  = mrr || 134;
+            document.getElementById('gs-biens').textContent        = '~' + ((clients || 6) * 22) + '/mois';
+            document.getElementById('gs-mails-sent').textContent   = (clients || 6) * 18;
+            document.getElementById('gs-mandats').textContent      = DEMO_DATA.metrics.mandat.total;
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // NAVIGATION — HUB ET OUTILS
+            // ══════════════════════════════════════════════════════════════
+
+            // Retour au hub principal
+            function showHub() {
+            currentTool = null;
+            // Cache toutes les vues outil
+            document.querySelectorAll('.tool-view').forEach(v => v.classList.remove('active'));
+            // Affiche le hub
+            document.getElementById('view-hub').style.display = 'flex';
+            // Met à jour les tabs
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-hub').classList.add('active');
+            }
+
+            // Ouvre un outil dans l'iframe
+            function openTool(tool) {
+            currentTool = tool;
+
+            // Cache le hub
+            document.getElementById('view-hub').style.display = 'none';
+            // Cache toutes les vues
+            document.querySelectorAll('.tool-view').forEach(v => v.classList.remove('active'));
+            // Affiche la vue de l'outil
+            const view = document.getElementById('view-' + tool);
+            view.classList.add('active');
+
+            // Met à jour les tabs
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            const tab = document.getElementById('tab-' + tool);
+            if (tab) tab.classList.add('active');
+
+            // Charge l'URL dans l'iframe (seulement si pas déjà chargé)
+            const iframe = document.getElementById('iframe-' + tool);
+            const urlEl  = document.getElementById('url-' + tool);
+
+            // Détermine l'URL selon le mode
+            const urls = {
+                leads:  isDemoMode ? CONFIG.demo.leads  || CONFIG.prod.leads  : CONFIG.prod.leads,
+                mail:   isDemoMode ? CONFIG.demo.mail   || CONFIG.prod.mail   : CONFIG.prod.mail,
+                mandat: isDemoMode ? CONFIG.demo.mandat || CONFIG.prod.mandat : CONFIG.prod.mandat,
+                pige:   isDemoMode ? CONFIG.demo.pige   || CONFIG.prod.pige   : CONFIG.prod.pige,
+            };
+
+            const url = urls[tool];
+            if (url && iframe.src !== url && url !== window.location.href) {
+                iframe.src = url;
+                if (urlEl) urlEl.textContent = url;
+            } else if (!url) {
+                // Pas d'URL configurée — affiche un message
+                iframe.srcdoc = buildPlaceholder(tool);
+                if (urlEl) urlEl.textContent = 'Non configuré';
+            }
+            }
+
+            // Page placeholder quand l'URL n'est pas encore configurée
+            function buildPlaceholder(tool) {
+            const names = { leads:'Suivi des leads', mail:'MailMind', mandat:'Dossier mandat', pige:'Pige automatisée' };
+            const icons = { leads:'📊', mail:'✉️', mandat:'📋', pige:'🔍' };
+            return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+            <style>
+                body{font-family:'Figtree',sans-serif;background:#f7f4ee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column;gap:16px;color:#8a8478;}
+                .ico{font-size:48px;opacity:.3;}
+                .msg{font-size:14px;font-weight:500;color:#4a4640;}
+                .sub{font-size:12px;color:#b8b0a0;text-align:center;max-width:320px;line-height:1.6;}
+                .code{background:#e8e0d0;border-radius:6px;padding:8px 16px;font-family:monospace;font-size:11px;color:#b8893a;}
+            </style></head><body>
+            <div class="ico">${icons[tool]}</div>
+            <div class="msg">${names[tool]}</div>
+            <div class="sub">Configurez l'URL de cet outil dans le fichier <code>index.html</code></div>
+            <div class="code">CONFIG.prod.${tool} = 'https://votre-url.railway.app'</div>
+            </body></html>`;
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // TOGGLE DÉMO / PRODUCTION
+            // ══════════════════════════════════════════════════════════════
+            function toggleDemo() {
+            isDemoMode = !isDemoMode;
+            updateDemoUI();
+            // Si un outil est ouvert, recharge son iframe
+            if (currentTool) {
+                const iframe = document.getElementById('iframe-' + currentTool);
+                if (iframe) iframe.src = 'about:blank';
+                openTool(currentTool);
+            }
+            loadData();
+            toast(
+                isDemoMode ? '🎭' : '⚡',
+                isDemoMode ? 'Mode démo activé' : 'Mode production activé',
+                isDemoMode ? 'Données fictives affichées' : 'Données réelles chargées'
+            );
+            }
+
+            function updateDemoUI() {
+            const dot   = document.getElementById('demo-dot');
+            const label = document.getElementById('demo-label');
+            if (isDemoMode) {
+                dot.className   = 'demo-toggle-dot demo';
+                label.textContent = 'Mode démo';
+            } else {
+                dot.className   = 'demo-toggle-dot live';
+                label.textContent = 'Mode réel';
+            }
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // TOAST
+            // ══════════════════════════════════════════════════════════════
+            function toast(ico, title, desc) {
+            const wrap = document.getElementById('toasts');
+            const el   = document.createElement('div');
+            el.className = 'toast';
+            el.innerHTML = `<span style="font-size:15px">${ico}</span><div><div class="toast-t">${title}</div><div class="toast-d">${desc}</div></div>`;
+            wrap.appendChild(el);
+            setTimeout(() => el.remove(), 3200);
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // DÉMARRAGE
+            // ══════════════════════════════════════════════════════════════
+            init();
+        </script>
+    </body>
+</html>
