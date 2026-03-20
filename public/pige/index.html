@@ -1,904 +1,904 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeadFlow — Pige</title>
-    <!--
-      ══════════════════════════════════════════════════════════════
-      DASHBOARD PIGE AUTOMATISÉE — LeadFlow
-      ══════════════════════════════════════════════════════════════
-      Rôle : afficher les biens scrapés depuis PAP/LBC chaque matin
-            par le workflow n8n, avec leur analyse IA.
-    
-      Stack : HTML/CSS/JS vanilla — aucune dépendance externe JS
-      Fonts : Google Fonts (Cormorant Garamond, Figtree, DM Mono)
-      Serveur : pige-server.js sur port 3004 (localhost ou Railway)
-    
-      Flux de données :
-        n8n scrape PAP/LBC → analyse Claude → POST /api/pige/bien
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LeadFlow — Pige</title>
+
+  <!--
+    ══════════════════════════════════════════════════════════════
+    DASHBOARD PIGE AUTOMATISÉE — LeadFlow
+    ══════════════════════════════════════════════════════════════
+    Rôle    : afficher les biens scrapés depuis PAP/LBC par n8n,
+              avec leur analyse IA (score, points forts, mail).
+
+    Stack   : HTML/CSS/JS vanilla — zéro dépendance externe JS
+    Fonts   : Google Fonts (Cormorant Garamond, Figtree, DM Mono)
+    Serveur : server.js Express sur Railway (voir variable BASE)
+
+    Flux de données :
+      n8n scrape PAP/LBC → analyse Claude
+        → POST /api/pige/bien (server.js)
         → ce dashboard poll GET /api/pige/biens toutes les 30s
         → affiche les biens dans la sidebar + détail au clic
-    
-      Pour modifier l'URL du serveur : chercher BASE_URL dans le JS
-      ══════════════════════════════════════════════════════════════
-    -->
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Figtree:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-      /* ══════════════════════════════════════════
-        RESET & VARIABLES CSS
-        Palette : crème/or cohérente avec LeadFlow
-        ══════════════════════════════════════════ 
-      */
-      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-      :root{
-        /* Fonds */
-        --cream:#f7f4ee; /* fond général */
-        --cream2: #f0ebe0;   /* fond légèrement plus foncé */
-        --cream3: #e8e0d0;   /* fond encore plus foncé */
-        /* Texte */
-        --ink:    #1c1a16;   /* texte principal */
-        --ink3:   #4a4640;   /* texte secondaire */
-        --muted:  #8a8478;   /* texte atténué */
-        --pale:   #b8b0a0;   /* texte très atténué */
-      
-        /* Accents */
-        --gold:   #b8893a;   /* or principal */
-        --gold2:  #d4a853;   /* or clair */
-        --green:  #2a8a60;   /* vert succès / potentiel fort */
-        --red:    #c84040;   /* rouge danger / potentiel faible */
-        --orange: #c87020;   /* orange avertissement / potentiel moyen */
-      
-        /* Bordures */
-        --border:  #e0d8c8;
-        --border2: #d0c8b8;
-      }
-      /* L'app prend toute la hauteur de la fenêtre sans scroll */
-      html,body{height:100%;overflow:hidden;}
-      body {
-        font-family:'Figtree',sans-serif;
-        background:var(--cream);
-        color:var(--ink);
-        font-size:13px;
-        line-height:1.6;
-        display:flex;
-        flex-direction:column; /* header en haut, stats-bar, puis app-body */
-      }
 
-      /* Header */
-      header{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:54px;background:rgba(247,244,238,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);flex-shrink:0;z-index:50;}
-      .logo{display:flex;align-items:center;gap:11px;}
-      .logo-mark{width:30px;height:30px;background:linear-gradient(135deg,var(--gold),var(--gold2));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;}
-      .logo-name{font-family:'Cormorant Garamond',serif;font-size:19px;font-weight:400;}
-      .logo-name em{font-style:italic;color:var(--gold);}
-      .logo-sub{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-top:1px;}
-      .header-right{display:flex;align-items:center;gap:10px;}
-      .date-badge{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;padding:3px 10px;background:var(--cream2);border:1px solid var(--border);border-radius:6px;}
-      .btn-pdf{display:flex;align-items:center;gap:6px;background:var(--cream3);color:var(--pale);border:1px solid var(--border);padding:7px 16px;border-radius:8px;font-family:'Figtree',sans-serif;font-size:12px;font-weight:500;cursor:not-allowed;transition:all .2s;opacity:.55;}
-      .btn-pdf:not([disabled]){background:linear-gradient(135deg,var(--gold),var(--gold2));color:white;border:none;cursor:pointer;opacity:1;}
-      .btn-pdf:not([disabled]):hover{transform:translateY(-1px);box-shadow:0 5px 18px rgba(184,137,58,.3);}
+    Pour changer l'URL du serveur → chercher BASE dans le JS
+    ══════════════════════════════════════════════════════════════
+  -->
 
-      /* Stats */
-      .stats-bar{display:flex;border-bottom:1px solid var(--border);background:var(--white);flex-shrink:0;}
-      .stat-item{flex:1;padding:10px 20px;display:flex;align-items:center;gap:12px;border-right:1px solid var(--border);}
-      .stat-item:last-child{border-right:none;}
-      .stat-val{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);line-height:1;}
-      .stat-label{font-size:10px;color:var(--muted);margin-top:2px;}
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Figtree:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-      /* App */
-      .app-body{display:flex;flex:1;overflow:hidden;}
+  <style>
+    /* ══════════════════════════════════════════
+       RESET & VARIABLES CSS
+       Palette crème/or cohérente avec LeadFlow
+       ══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      /* Sidebar */
-      .sidebar{width:290px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--white);}
-      .sidebar-search{padding:12px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
-      .search-wrap{position:relative;}
-      .search-input{width:100%;background:var(--cream);border:1px solid var(--border2);border-radius:8px;padding:7px 10px 7px 30px;font-family:'Figtree',sans-serif;font-size:12px;color:var(--ink);outline:none;transition:border-color .2s;}
-      .search-input:focus{border-color:var(--gold);background:white;}
-      .search-input::placeholder{color:var(--pale);}
-      .search-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--pale);font-size:12px;pointer-events:none;}
+    :root {
+      --cream:   #f7f4ee;   /* fond général */
+      --cream2:  #f0ebe0;   /* fond légèrement plus foncé */
+      --cream3:  #e8e0d0;   /* fond encore plus foncé */
+      --white:   #ffffff;
+      --ink:     #1c1a16;   /* texte principal */
+      --ink3:    #4a4640;   /* texte secondaire */
+      --muted:   #8a8478;   /* texte atténué */
+      --pale:    #b8b0a0;   /* texte très atténué */
+      --gold:    #b8893a;   /* or principal */
+      --gold2:   #d4a853;   /* or clair */
+      --green:   #2a8a60;   /* potentiel fort */
+      --red:     #c84040;   /* potentiel faible */
+      --orange:  #c87020;   /* potentiel moyen */
+      --border:  #e0d8c8;
+      --border2: #d0c8b8;
+    }
 
-      /* Pills minimalistes */
-      .pot-pills{display:flex;gap:4px;padding:8px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0;}
-      .ppill{flex:1;padding:4px 0;text-align:center;background:var(--cream2);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .15s;font-family:'Figtree',sans-serif;}
-      .ppill.active{background:rgba(184,137,58,.08);border-color:rgba(184,137,58,.3);color:var(--gold);}
+    /* L'app occupe toute la fenêtre sans scroll global */
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: 'Figtree', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+    }
 
-      .sidebar-count{display:flex;align-items:center;justify-content:space-between;padding:5px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
-      .count-txt{font-size:10px;color:var(--pale);}
-      .count-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);font-weight:500;}
+    /* ══════════════════════════════════════════
+       HEADER
+       - Logo LeadFlow
+       - Badge date (mis à jour par JS)
+       - Bouton PDF (grisé si aucun bien sélectionné)
+       ══════════════════════════════════════════ */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px; height: 54px;
+      background: rgba(247,244,238,.97);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0; z-index: 50;
+    }
+    .logo { display: flex; align-items: center; gap: 11px; }
+    .logo-mark {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .logo-name { font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 400; }
+    .logo-name em { font-style: italic; color: var(--gold); }
+    .logo-sub { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 1px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
 
-      .bien-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;}
-      .bien-list::-webkit-scrollbar{width:3px;}
-      .bien-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+    /* Badge affichant la date du dernier scraping */
+    .date-badge {
+      font-size: 11px; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      padding: 3px 10px;
+      background: var(--cream2); border: 1px solid var(--border); border-radius: 6px;
+    }
 
-      /* Bien card */
-      .bcard{background:var(--cream);border:1px solid var(--border);border-radius:10px;padding:10px 13px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden;}
-      .bcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:10px 0 0 10px;opacity:0;transition:opacity .2s;}
-      .bcard:hover{background:white;border-color:var(--border2);}
-      .bcard.active{background:white;border-color:var(--gold);}
-      .bcard.active::before{background:var(--gold);opacity:1;}
-      .bcard-row1{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
-      .bcard-title{font-size:12.5px;font-weight:500;color:var(--ink);line-height:1.35;}
-      .bcard-addr{font-size:11px;color:var(--muted);margin-top:2px;}
-      .pot-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:3px;}
-      .pd-fort{background:var(--green);}
-      .pd-moyen{background:var(--orange);}
-      .pd-faible{background:var(--red);}
-      .bcard-row2{display:flex;align-items:center;justify-content:space-between;margin-top:6px;}
-      .bcard-prix{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;color:var(--gold);}
-      .bcard-meta{font-size:10px;color:var(--pale);}
+    /* Bouton PDF — grisé par défaut (disabled)
+       Activé dès qu'un bien est sélectionné via sel() */
+    .btn-pdf {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--cream3); color: var(--pale);
+      border: 1px solid var(--border);
+      padding: 7px 16px; border-radius: 8px;
+      font-family: 'Figtree', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: not-allowed; transition: all .2s; opacity: .55;
+    }
+    .btn-pdf:not([disabled]) {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: white; border: none; cursor: pointer; opacity: 1;
+    }
+    .btn-pdf:not([disabled]):hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(184,137,58,.3); }
 
-      /* Detail */
-      .detail-pane{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--cream);}
-      .detail-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
-      .detail-empty-icon{font-size:36px;opacity:.18;}
-      .detail-empty-txt{font-size:12px;color:var(--pale);}
-      .detail-scroll{flex:1;overflow-y:auto;padding:22px 26px;display:flex;flex-direction:column;gap:18px;}
-      .detail-scroll::-webkit-scrollbar{width:3px;}
-      .detail-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+    /* ══════════════════════════════════════════
+       BARRE DE STATISTIQUES
+       4 compteurs mis à jour par updateStats()
+       ══════════════════════════════════════════ */
+    .stats-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--white); flex-shrink: 0; }
+    .stat-item { flex: 1; padding: 10px 20px; display: flex; align-items: center; gap: 12px; border-right: 1px solid var(--border); }
+    .stat-item:last-child { border-right: none; }
+    .stat-val { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--ink); line-height: 1; }
+    .stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
-      /* Detail head */
-      .dh-wrap{background:var(--white);border:1px solid var(--border);border-radius:13px;padding:18px 22px;}
-      .dh-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
-      .dh-source{font-size:9px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
-      .dh-title{font-family:'Cormorant Garamond',serif;font-size:21px;font-weight:400;color:var(--ink);margin-bottom:2px;}
-      .dh-addr{font-size:12px;color:var(--muted);}
-      .dh-prix{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;color:var(--gold);line-height:1;text-align:right;}
-      .dh-m2{font-size:11px;color:var(--muted);text-align:right;margin-top:2px;}
-      .dh-tags{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
-      .dh-tag{padding:3px 9px;border-radius:5px;font-size:11px;background:var(--cream2);border:1px solid var(--border);color:var(--ink3);}
-      .dh-actions{display:flex;gap:6px;}
-      .btn-sm{padding:6px 13px;border-radius:7px;font-family:'Figtree',sans-serif;font-size:11px;font-weight:600;cursor:pointer;transition:all .18s;border:none;}
-      .btn-send{background:linear-gradient(135deg,var(--gold),var(--gold2));color:white;}
-      .btn-send:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(184,137,58,.3);}
-      .btn-ok{background:rgba(42,138,96,.08);color:var(--green);border:1px solid rgba(42,138,96,.2)!important;}
-      .btn-skip{background:var(--cream2);color:var(--muted);border:1px solid var(--border)!important;}
+    /* ══════════════════════════════════════════
+       LAYOUT PRINCIPAL
+       Sidebar 290px fixe + panneau de détail flexible
+       ══════════════════════════════════════════ */
+    .app-body { display: flex; flex: 1; overflow: hidden; }
 
-      /* Section title */
-      .section-title{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-      .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+    /* ── SIDEBAR ──────────────────────────────── */
+    .sidebar {
+      width: 290px; flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      background: var(--white);
+    }
 
-      /* Points */
-      .points-grid{display:flex;flex-direction:column;gap:6px;}
-      .point-card{display:flex;gap:10px;align-items:flex-start;padding:10px 13px;background:var(--white);border:1px solid var(--border);border-radius:9px;}
-      .point-ico{width:26px;height:26px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;}
-      .pic-g{background:rgba(42,138,96,.08);border:1px solid rgba(42,138,96,.2);}
-      .pic-o{background:rgba(184,137,58,.08);border:1px solid rgba(184,137,58,.2);}
-      .pic-b{background:rgba(58,112,200,.06);border:1px solid rgba(58,112,200,.18);}
-      .pic-r{background:rgba(200,112,32,.06);border:1px solid rgba(200,112,32,.18);}
-      .point-label{font-size:12px;font-weight:500;color:var(--ink);margin-bottom:1px;}
-      .point-desc{font-size:11px;color:var(--ink3);line-height:1.5;font-weight:300;}
+    /* Champ de recherche texte — filtre en temps réel */
+    .sidebar-search { padding: 12px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .search-wrap { position: relative; }
+    .search-input {
+      width: 100%; background: var(--cream);
+      border: 1px solid var(--border2); border-radius: 8px;
+      padding: 7px 10px 7px 30px;
+      font-family: 'Figtree', sans-serif; font-size: 12px; color: var(--ink);
+      outline: none; transition: border-color .2s;
+    }
+    .search-input:focus { border-color: var(--gold); background: white; }
+    .search-input::placeholder { color: var(--pale); }
+    .search-ico { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--pale); font-size: 12px; pointer-events: none; }
 
-      /* Two cols */
-      .two-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    /* Pills de filtre par potentiel — gérées par setPot() */
+    .pot-pills { display: flex; gap: 4px; padding: 8px 14px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .ppill {
+      flex: 1; padding: 4px 0; text-align: center;
+      background: var(--cream2); border: 1px solid var(--border); border-radius: 6px;
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      cursor: pointer; transition: all .15s; font-family: 'Figtree', sans-serif;
+    }
+    .ppill.active { background: rgba(184,137,58,.08); border-color: rgba(184,137,58,.3); color: var(--gold); }
 
-      /* Potentiel */
-      .pot-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:15px;}
-      .pot-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:7px;}
-      .pot-score{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;line-height:1;margin-bottom:7px;}
-      .ps-f{color:var(--green);}
-      .ps-m{color:var(--orange);}
-      .ps-w{color:var(--red);}
-      .pot-bar-wrap{height:5px;background:var(--cream3);border-radius:3px;overflow:hidden;margin-bottom:8px;}
-      .pot-bar{height:100%;border-radius:3px;}
-      .pb-f{background:linear-gradient(90deg,var(--green),#40aa80);}
-      .pb-m{background:linear-gradient(90deg,var(--orange),#e09040);}
-      .pb-w{background:linear-gradient(90deg,var(--red),#e06060);}
-      .pot-desc{font-size:11px;color:var(--ink3);line-height:1.55;font-weight:300;}
+    /* Compteur de biens visibles */
+    .sidebar-count { display: flex; align-items: center; justify-content: space-between; padding: 5px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .count-txt { font-size: 10px; color: var(--pale); }
+    .count-num { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gold); font-weight: 500; }
 
-      /* Approche */
-      .approche-card{background:var(--ink);border-radius:10px;padding:15px;position:relative;overflow:hidden;}
-      .approche-card::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(184,137,58,.12) 0%,transparent 70%);}
-      .approche-lbl{font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:2px;margin-bottom:7px;font-weight:600;}
-      .approche-txt{font-size:11.5px;color:rgba(247,244,238,.75);line-height:1.7;font-weight:300;position:relative;z-index:1;}
+    /* Liste scrollable des cartes biens */
+    .bien-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+    .bien-list::-webkit-scrollbar { width: 3px; }
+    .bien-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-      /* Mail */
-      .mail-wrap{background:var(--white);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-      .mail-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--border);background:var(--cream2);}
-      .mail-objet{font-size:12px;font-weight:500;color:var(--ink);}
-      .mail-copy{font-size:10px;color:var(--gold);cursor:pointer;background:none;border:none;font-family:'Figtree',sans-serif;font-weight:600;transition:opacity .2s;}
-      .mail-copy:hover{opacity:.6;}
-      .mail-body{padding:13px 15px;font-size:11.5px;color:var(--ink3);line-height:1.8;font-weight:300;white-space:pre-line;}
+    /* ── BIEN CARD — carte dans la sidebar ─────
+       Générée par renderList() · Clic → sel(id)
+       La barre gauche dorée apparaît sur .active */
+    .bcard {
+      background: var(--cream); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 13px;
+      cursor: pointer; transition: all .18s;
+      position: relative; overflow: hidden;
+    }
+    .bcard::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      border-radius: 10px 0 0 10px; opacity: 0; transition: opacity .2s;
+    }
+    .bcard:hover { background: white; border-color: var(--border2); }
+    .bcard.active { background: white; border-color: var(--gold); }
+    .bcard.active::before { background: var(--gold); opacity: 1; }
+    .bcard-row1 { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
+    .bcard-title { font-size: 12.5px; font-weight: 500; color: var(--ink); line-height: 1.35; }
+    .bcard-addr  { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-      /* Toast */
-      .toast-wrap{position:fixed;bottom:18px;right:18px;z-index:400;display:flex;flex-direction:column;gap:6px;}
-      .toast{background:var(--ink);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;min-width:220px;box-shadow:0 8px 28px rgba(28,26,22,.22);animation:toastIn .25s ease;}
-      @keyframes toastIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:translateX(0);}}
-      .toast-t{font-size:12px;font-weight:500;color:#f7f4ee;}
-      .toast-d{font-size:10.5px;color:rgba(247,244,238,.5);margin-top:1px;}
+    /* Point coloré indiquant le potentiel (vert/orange/rouge) */
+    .pot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+    .pd-fort   { background: var(--green); }
+    .pd-moyen  { background: var(--orange); }
+    .pd-faible { background: var(--red); }
+    .bcard-row2 { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+    .bcard-prix { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; color: var(--gold); }
+    .bcard-meta { font-size: 10px; color: var(--pale); }
 
-      /* Potential tag inline */
-      .pt-f{background:rgba(42,138,96,.08);color:var(--green);border:1px solid rgba(42,138,96,.2);padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;display:inline-flex;align-items:center;gap:3px;}
-      .pt-m{background:rgba(200,112,32,.06);color:var(--orange);border:1px solid rgba(200,112,32,.2);padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;}
-      .pt-w{background:rgba(200,64,64,.06);color:var(--red);border:1px solid rgba(200,64,64,.2);padding:3px 9px;border-radius:5px;font-size:10.5px;font-weight:600;}
+    /* ── PANNEAU DE DÉTAIL ─────────────────────
+       Affiche soit l'état vide soit le détail
+       Le contenu est injecté dynamiquement par sel()
+       ══════════════════════════════════════════ */
+    .detail-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--cream); }
 
-      /* ── PDF ── */
-      @media print{
-        @page{size:A4 portrait;margin:10mm 13mm;}
-        html,body{height:auto!important;overflow:visible!important;}
-        header,.stats-bar,.sidebar,.toast-wrap,.detail-pane{display:none!important;}
-        .app-body{display:block!important;}
-        #pdf-container{display:block!important;}
-        body{background:white;font-size:10px;
-        -webkit-print-color-adjust:exact;
-        print-color-adjust:exact;}
-      }
-      #pdf-container{display:none;}
+    /* État vide — affiché quand aucun bien n'est sélectionné */
+    .detail-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+    .detail-empty-icon { font-size: 36px; opacity: .18; }
+    .detail-empty-txt  { font-size: 12px; color: var(--pale); }
 
-      /* Fiches PDF */
-      .pdf-cover{background:#1c1a16;padding:18px 22px;border-radius:10px 10px 0 0;display:flex;align-items:center;justify-content:space-between;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      .pdf-cover-title{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300;color:#f7f4ee;}
-      .pdf-cover-meta{font-size:9px;color:rgba(247,244,238,.4);margin-top:3px;font-family:'DM Mono',monospace;}
-      .pdf-cover-brand{font-family:'Cormorant Garamond',serif;font-size:13px;color:rgba(247,244,238,.35);}
-      .pdf-cover-brand em{font-style:italic;color:#b8893a;}
+    /* Conteneur scrollable du détail */
+    .detail-scroll { flex: 1; overflow-y: auto; padding: 22px 26px; display: flex; flex-direction: column; gap: 18px; }
+    .detail-scroll::-webkit-scrollbar { width: 3px; }
+    .detail-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
-      .pdf-fiche{background:white;border:1px solid #e0d8c8;border-radius:10px;overflow:hidden;margin-top:12px;page-break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      .pdf-fiche-head{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #e8e0d0;background:#f7f4ee;}
-      .pf-type{font-size:8px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#b8893a;margin-bottom:3px;}
-      .pf-title{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:400;color:#1c1a16;margin-bottom:2px;}
-      .pf-addr{font-size:9px;color:#8a8478;}
-      .pf-prix{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:#b8893a;text-align:right;line-height:1;}
-      .pf-m2{font-size:9px;color:#8a8478;text-align:right;margin-top:2px;}
+    /* ── Carte principale du bien ── */
+    .dh-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 13px; padding: 18px 22px; }
+    .dh-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+    .dh-source { font-size: 9px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+    .dh-title  { font-family: 'Cormorant Garamond', serif; font-size: 21px; font-weight: 400; color: var(--ink); margin-bottom: 2px; }
+    .dh-addr   { font-size: 12px; color: var(--muted); }
+    .dh-prix   { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; color: var(--gold); line-height: 1; text-align: right; }
+    .dh-m2     { font-size: 11px; color: var(--muted); text-align: right; margin-top: 2px; }
+    .dh-tags   { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
+    .dh-tag    { padding: 3px 9px; border-radius: 5px; font-size: 11px; background: var(--cream2); border: 1px solid var(--border); color: var(--ink3); }
+    .dh-actions { display: flex; gap: 6px; }
+    .btn-sm   { padding: 6px 13px; border-radius: 7px; font-family: 'Figtree', sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .18s; border: none; }
+    .btn-send { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: white; }
+    .btn-send:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(184,137,58,.3); }
+    .btn-ok   { background: rgba(42,138,96,.08); color: var(--green); border: 1px solid rgba(42,138,96,.2) !important; }
+    .btn-skip { background: var(--cream2); color: var(--muted); border: 1px solid var(--border) !important; }
 
-      .pdf-tags{display:flex;gap:4px;padding:7px 16px;border-bottom:1px solid #f0ebe0;flex-wrap:wrap;}
-      .pdf-tag{padding:2px 7px;border-radius:4px;font-size:8.5px;background:#f0ebe0;border:1px solid #e0d8c8;color:#4a4640;}
-      .pdf-pot-f{padding:2px 7px;border-radius:4px;font-size:8.5px;font-weight:600;background:rgba(42,138,96,.08);color:#2a8a60;border:1px solid rgba(42,138,96,.18);}
-      .pdf-pot-m{padding:2px 7px;border-radius:4px;font-size:8.5px;font-weight:600;background:rgba(200,112,32,.07);color:#c87020;border:1px solid rgba(200,112,32,.18);}
-      .pdf-pot-w{padding:2px 7px;border-radius:4px;font-size:8.5px;font-weight:600;background:rgba(200,64,64,.07);color:#c84040;border:1px solid rgba(200,64,64,.18);}
+    /* Titre de section avec ligne décorative auto-extensible */
+    .section-title { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-      .pdf-body{display:grid;grid-template-columns:1fr 1fr;}
-      .pdf-points{padding:10px 14px;border-right:1px solid #f0ebe0;}
-      .pdf-pts-title{font-size:7.5px;color:#8a8478;text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:7px;}
-      .pdf-pt{display:flex;gap:6px;margin-bottom:5px;}
-      .pdf-pt-dot{width:5px;height:5px;border-radius:50%;background:#b8893a;flex-shrink:0;margin-top:3px;}
-      .pdf-pt-lbl{font-size:9.5px;font-weight:500;color:#1c1a16;}
-      .pdf-pt-desc{font-size:8.5px;color:#4a4640;line-height:1.5;font-weight:300;}
+    /* ── Points forts du bien ── */
+    .points-grid { display: flex; flex-direction: column; gap: 6px; }
+    .point-card { display: flex; gap: 10px; align-items: flex-start; padding: 10px 13px; background: var(--white); border: 1px solid var(--border); border-radius: 9px; }
+    .point-ico  { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    /* Couleurs des icones selon le type de point */
+    .pic-g { background: rgba(42,138,96,.08);  border: 1px solid rgba(42,138,96,.2); }
+    .pic-o { background: rgba(184,137,58,.08); border: 1px solid rgba(184,137,58,.2); }
+    .pic-b { background: rgba(58,112,200,.06); border: 1px solid rgba(58,112,200,.18); }
+    .pic-r { background: rgba(200,112,32,.06); border: 1px solid rgba(200,112,32,.18); }
+    .point-label { font-size: 12px; font-weight: 500; color: var(--ink); margin-bottom: 1px; }
+    .point-desc  { font-size: 11px; color: var(--ink3); line-height: 1.5; font-weight: 300; }
 
-      .pdf-approche{padding:10px 14px;background:#1c1a16;}
-      .pdf-app-title{font-size:7.5px;color:#b8893a;text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:6px;}
-      .pdf-app-txt{font-size:9.5px;color:rgba(247,244,238,.72);line-height:1.65;font-weight:300;}
+    /* Grille 2 colonnes pour Potentiel + Stratégie */
+    .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-      .pdf-mail{padding:9px 16px;border-top:1px solid #f0ebe0;background:#faf8f4;}
-      .pdf-mail-lbl{font-size:7.5px;color:#8a8478;text-transform:uppercase;letter-spacing:2px;margin-bottom:3px;font-weight:600;}
-      .pdf-mail-obj{font-size:9.5px;font-weight:500;color:#1c1a16;margin-bottom:4px;}
-      .pdf-mail-txt{font-size:9px;color:#4a4640;line-height:1.65;font-weight:300;white-space:pre-line;}
+    /* ── Carte potentiel ── */
+    .pot-card  { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 15px; }
+    .pot-lbl   { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 7px; }
+    .pot-score { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; line-height: 1; margin-bottom: 7px; }
+    .ps-f { color: var(--green); }
+    .ps-m { color: var(--orange); }
+    .ps-w { color: var(--red); }
+    /* Barre de progression — largeur définie inline via style="width:${score}%" */
+    .pot-bar-wrap { height: 5px; background: var(--cream3); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+    .pot-bar { height: 100%; border-radius: 3px; }
+    .pb-f { background: linear-gradient(90deg, var(--green), #40aa80); }
+    .pb-m { background: linear-gradient(90deg, var(--orange), #e09040); }
+    .pb-w { background: linear-gradient(90deg, var(--red), #e06060); }
+    .pot-desc { font-size: 11px; color: var(--ink3); line-height: 1.55; font-weight: 300; }
 
-      .pdf-break{page-break-before:always;}
-      .pdf-footer{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid #e0d8c8;margin-top:10px;}
-      .pdf-footer-brand{font-family:'Cormorant Garamond',serif;font-size:12px;color:#8a8478;}
-      .pdf-footer-brand em{font-style:italic;color:#b8893a;}
-      .pdf-footer-info{font-size:8.5px;color:#b8b0a0;font-family:'DM Mono',monospace;}
-    </style>
-  </head>
-  <body>
+    /* ── Carte stratégie d'approche (fond sombre) ── */
+    .approche-card { background: var(--ink); border-radius: 10px; padding: 15px; position: relative; overflow: hidden; }
+    /* Cercle décoratif lumineux */
+    .approche-card::before { content: ''; position: absolute; top: -30px; right: -30px; width: 100px; height: 100px; border-radius: 50%; background: radial-gradient(circle, rgba(184,137,58,.12) 0%, transparent 70%); }
+    .approche-lbl { font-size: 9px; color: var(--gold); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 7px; font-weight: 600; }
+    .approche-txt { font-size: 11.5px; color: rgba(247,244,238,.75); line-height: 1.7; font-weight: 300; position: relative; z-index: 1; }
 
-    <header>
-      <div class="logo">
-        <div class="logo-mark">🔍</div>
-        <div>
-          <div class="logo-name">Lead<em>Flow</em></div>
-          <div class="logo-sub">Pige automatisée</div>
-        </div>
-      </div>
-      <div class="header-right">
-        <span class="date-badge" id="date-badge">—</span>
-        <button class="btn-pdf" id="btn-pdf" onclick="exportPDF()" disabled>🖨 Fiche PDF</button>
-      </div>
-    </header>
+    /* ── Mail d'approche ── */
+    .mail-wrap  { background: var(--white); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .mail-head  { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--cream2); }
+    .mail-objet { font-size: 12px; font-weight: 500; color: var(--ink); }
+    /* Bouton copier → navigator.clipboard dans copier() */
+    .mail-copy  { font-size: 10px; color: var(--gold); cursor: pointer; background: none; border: none; font-family: 'Figtree', sans-serif; font-weight: 600; transition: opacity .2s; }
+    .mail-copy:hover { opacity: .6; }
+    /* white-space: pre-line préserve les sauts de ligne du texte brut */
+    .mail-body  { padding: 13px 15px; font-size: 11.5px; color: var(--ink3); line-height: 1.8; font-weight: 300; white-space: pre-line; }
 
-    <div class="stats-bar">
-      <div class="stat-item"><div><div class="stat-val" id="s-total">5</div><div class="stat-label">Biens analysés</div></div></div>
-      <div class="stat-item"><div><div class="stat-val" id="s-fort" style="color:var(--green)">3</div><div class="stat-label">Fort potentiel</div></div></div>
-      <div class="stat-item"><div><div class="stat-val" id="s-new">2</div><div class="stat-label">Nouveaux</div></div></div>
-      <div class="stat-item"><div><div class="stat-val" id="s-sent" style="color:#3a70c8">1</div><div class="stat-label">Mails envoyés</div></div></div>
-    </div>
+    /* ── Badges potentiel (inline dans les tags) ── */
+    .pt-f { background: rgba(42,138,96,.08);  color: var(--green);  border: 1px solid rgba(42,138,96,.2);  padding: 3px 9px; border-radius: 5px; font-size: 10.5px; font-weight: 600; }
+    .pt-m { background: rgba(200,112,32,.06); color: var(--orange); border: 1px solid rgba(200,112,32,.2); padding: 3px 9px; border-radius: 5px; font-size: 10.5px; font-weight: 600; }
+    .pt-w { background: rgba(200,64,64,.06);  color: var(--red);    border: 1px solid rgba(200,64,64,.2);  padding: 3px 9px; border-radius: 5px; font-size: 10.5px; font-weight: 600; }
 
-    <div class="app-body">
-      <div class="sidebar">
-        <div class="sidebar-search">
-          <div class="search-wrap">
-            <span class="search-ico">🔍</span>
-            <input class="search-input" id="search-input" placeholder="Rechercher…" oninput="renderList()">
-          </div>
-        </div>
-        <div class="pot-pills">
-          <button class="ppill active" onclick="setPot(this,'all')">Tous</button>
-          <button class="ppill" onclick="setPot(this,'fort')">⬤ Fort</button>
-          <button class="ppill" onclick="setPot(this,'moyen')">⬤ Moyen</button>
-          <button class="ppill" onclick="setPot(this,'faible')">⬤ Faible</button>
-        </div>
-        <div class="sidebar-count">
-          <span class="count-txt">Biens affichés</span>
-          <span class="count-num" id="bien-count">5</span>
-        </div>
-        <div class="bien-list" id="bien-list"></div>
-      </div>
+    /* ── Toasts — notifications temporaires ──
+       Apparaissent en bas à droite, disparaissent après 3s */
+    .toast-wrap { position: fixed; bottom: 18px; right: 18px; z-index: 400; display: flex; flex-direction: column; gap: 6px; }
+    .toast { background: var(--ink); border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; min-width: 220px; box-shadow: 0 8px 28px rgba(28,26,22,.22); animation: toastIn .25s ease; }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+    .toast-t { font-size: 12px; font-weight: 500; color: #f7f4ee; }
+    .toast-d { font-size: 10.5px; color: rgba(247,244,238,.5); margin-top: 1px; }
+  </style>
+</head>
+<body>
 
-      <div class="detail-pane">
-        <div class="detail-empty" id="detail-empty">
-          <div class="detail-empty-icon">🏠</div>
-          <div class="detail-empty-txt">Sélectionnez un bien pour voir l'analyse</div>
-        </div>
-        <div class="detail-scroll" id="detail-scroll" style="display:none;"></div>
+  <!-- ══════════════════════════════════════════
+       HEADER
+       ══════════════════════════════════════════ -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark">🔍</div>
+      <div>
+        <div class="logo-name">Lead<em>Flow</em></div>
+        <div class="logo-sub">Pige automatisée</div>
       </div>
     </div>
+    <div class="header-right">
+      <!-- Date du dernier scraping — remplie par init() -->
+      <span class="date-badge" id="date-badge">—</span>
+      <!-- Désactivé tant qu'aucun bien n'est sélectionné -->
+      <button class="btn-pdf" id="btn-pdf" onclick="exportPDF()" disabled>🖨 Fiche PDF</button>
+    </div>
+  </header>
 
-    <div id="pdf-container"></div>
-    <div class="toast-wrap" id="toasts"></div>
+  <!-- ══════════════════════════════════════════
+       BARRE DE STATISTIQUES
+       Valeurs initialisées à 0, mises à jour par updateStats()
+       ══════════════════════════════════════════ -->
+  <div class="stats-bar">
+    <div class="stat-item"><div><div class="stat-val" id="s-total">0</div><div class="stat-label">Biens analysés</div></div></div>
+    <div class="stat-item"><div><div class="stat-val" id="s-fort" style="color:var(--green)">0</div><div class="stat-label">Fort potentiel</div></div></div>
+    <div class="stat-item"><div><div class="stat-val" id="s-new">0</div><div class="stat-label">Nouveaux</div></div></div>
+    <div class="stat-item"><div><div class="stat-val" id="s-sent" style="color:#3a70c8">0</div><div class="stat-label">Mails envoyés</div></div></div>
+  </div>
 
-    <script>
-      const BIENS=[
-        {id:1,emoji:'🏢',type:'Appartement',source:'PAP',titre:'T4 lumineux — Croix-Rousse',adresse:'14 rue Leynaud, Lyon 1er',prix:420000,surface:92,pieces:4,etage:'3ème ét.',dpe:'C',date:"Aujourd'hui",statut:'new',potentiel:'fort',score:87,score_desc:'Bien rare dans ce secteur très demandé. Prix légèrement sous le marché (4 565€/m² vs 4 800€ médian).',
-        points:[
-          {ico:'📍',cls:'pic-g',label:'Secteur premium',desc:'Croix-Rousse — l\'un des secteurs les plus recherchés de Lyon. Délai de vente moyen : 28 jours.'},
-          {ico:'💰',cls:'pic-o',label:'Prix sous le marché',desc:'4 565€/m² pour un médian à 4 800€/m². Fort attrait acquéreurs, marge de négociation limitée.'},
-          {ico:'📐',cls:'pic-b',label:'Surface généreuse',desc:'92m² pour un T4 est rare dans l\'immeuble ancien. Très recherché par les familles.'},
-          {ico:'⚡',cls:'pic-r',label:'Annonce du jour',desc:'Publiée ce matin. Aucune agence n\'a encore contacté le propriétaire.'},
-        ],
-        approche:'Propriétaire probablement pressé vu le prix affiché. Valoriser votre capacité à trouver un acheteur qualifié rapidement. Mettre en avant votre connaissance du secteur et votre délai de vente moyen. Ne pas parler de commission au premier appel.',
-        mail_objet:'Votre appartement rue Leynaud — j\'ai des acquéreurs',
-        mail_corps:`Bonjour,\n\nJ'ai pris connaissance de votre annonce ce matin concernant votre T4 rue Leynaud.\n\nJe suis agent immobilier sur la Croix-Rousse depuis plusieurs années et je suis en contact avec des acquéreurs sérieux, financement validé, qui recherchent exactement ce profil dans ce secteur.\n\nJe serais heureux d'échanger avec vous rapidement pour vous donner une vision précise du marché actuel.\n\nSeriez-vous disponible pour un court appel cette semaine ?\n\nBien cordialement,\n[Votre nom] — [Votre agence]`},
-        {id:2,emoji:'🏠',type:'Maison',source:'PAP',titre:'Maison 5 pièces — Caluire',adresse:'8 allée des Roses, Caluire-et-Cuire',prix:580000,surface:145,pieces:5,etage:'Plain-pied',dpe:'B',date:'Hier',statut:'sent',potentiel:'fort',score:79,score_desc:'Maison avec jardin, DPE B. Profil idéal famille. Annonce en ligne depuis 2 jours sans contact d\'agence visible.',
-        points:[
-          {ico:'🌿',cls:'pic-g',label:'DPE B — argument fort',desc:'Très recherché depuis la hausse des coûts énergétiques. Argument de vente majeur.'},
-          {ico:'🏡',cls:'pic-o',label:'Jardin + plain-pied',desc:'Combinaison rare sur Caluire. Correspond exactement à la demande des familles.'},
-          {ico:'📅',cls:'pic-b',label:'2 jours sans réponse',desc:'Pas encore de visite organisée selon l\'historique PAP. Fenêtre ouverte.'},
-          {ico:'🚇',cls:'pic-r',label:'Proche métro C',desc:'8 min — Part-Dieu en 12 min. Critère décisif pour les biactifs.'},
-        ],
-        approche:'Approche à axer sur votre capacité à qualifier les acheteurs et protéger contre les visites inutiles. Valoriser votre base d\'acquéreurs sur Caluire et votre connaissance des prix hyperlocaux.',
-        mail_objet:'Votre maison allée des Roses — acheteurs qualifiés sur Caluire',
-        mail_corps:`Bonjour,\n\nVotre annonce pour la maison allée des Roses m'a retenu ce matin.\n\nJ'accompagne actuellement plusieurs familles en recherche active sur Caluire — maison plain-pied avec jardin, DPE correct, proche transports.\n\nSeriez-vous ouvert à un échange rapide ?\n\nBien cordialement,\n[Votre nom] — [Votre agence]`},
-        {id:3,emoji:'🏢',type:'Appartement',source:'LBC',titre:'Studio meublé — Part-Dieu',adresse:'3 rue Garibaldi, Lyon 3ème',prix:142000,surface:28,pieces:1,etage:'6ème ét.',dpe:'D',date:'Il y a 3 jours',statut:'contact',potentiel:'moyen',score:52,score_desc:'Studio bien placé mais DPE D limitant. Prix dans la moyenne haute. Cible investisseur uniquement.',
-        points:[
-          {ico:'📍',cls:'pic-g',label:'Part-Dieu — locatif premium',desc:'Demande locative constante. Rendement brut estimé à 5,2%.'},
-          {ico:'🔝',cls:'pic-o',label:'6ème étage — vue dégagée',desc:'Luminosité maximale. Argument visuel fort lors des visites.'},
-          {ico:'⚠️',cls:'pic-r',label:'DPE D — attention',desc:'Contrainte réglementaire à anticiper. Argument de négociation pour l\'acheteur.'},
-        ],
-        approche:'Cible investisseur uniquement. Calculer le rendement locatif brut avant la conversation. Être transparent sur le DPE pour asseoir votre crédibilité.',
-        mail_objet:'Studio Garibaldi — rendement 5,2% brut',
-        mail_corps:`Bonjour,\n\nJ'ai analysé votre studio rue Garibaldi ce matin.\n\nAvec un loyer marché de 615€/mois, votre bien offre un rendement brut de 5,2% — dossier intéressant pour les investisseurs que j'accompagne actuellement.\n\nSeriez-vous disponible pour qu'on en parle ?\n\nCordialement,\n[Votre nom] — [Votre agence]`},
-        {id:4,emoji:'🏢',type:'Appartement',source:'PAP',titre:'T2 refait à neuf — Confluence',adresse:'22 cours Charlemagne, Lyon 2ème',prix:295000,surface:48,pieces:2,etage:'2ème ét.',dpe:'A',date:"Aujourd'hui",statut:'new',potentiel:'fort',score:91,score_desc:'DPE A exceptionnel, quartier en forte valorisation +12% sur 24 mois. Annonce du jour — fenêtre maximale.',
-        points:[
-          {ico:'🌟',cls:'pic-g',label:'DPE A — exceptionnel',desc:'Moins de 2% des biens lyonnais. Argument différenciateur absolu sur le marché actuel.'},
-          {ico:'🏙️',cls:'pic-o',label:'Confluence +12% sur 24 mois',desc:'Fort potentiel de plus-value. Quartier en pleine transformation urbaine.'},
-          {ico:'✨',cls:'pic-b',label:'Refait à neuf',desc:'Zéro travaux — argument décisif pour les primo-accédants sans budget complémentaire.'},
-          {ico:'⚡',cls:'pic-r',label:'Annonce du jour',desc:'Publiée ce matin. Fenêtre maximale avant que d\'autres agences contactent.'},
-        ],
-        approche:'Bien premium qui se vendra vite. Créer l\'urgence chez le propriétaire. Mettre en avant le DPE A comme argument exceptionnel. Proposer un mandat exclusif 30 jours avec garantie de visites dans la semaine.',
-        mail_objet:'T2 DPE A Confluence — j\'ai des acheteurs',
-        mail_corps:`Bonjour,\n\nVotre T2 cours Charlemagne m'a immédiatement interpellé — DPE A sur la Confluence, c'est rarissime.\n\nJe suis en contact avec plusieurs acheteurs sérieux, financement validé, qui ont spécifiquement demandé à être alertés pour tout bien DPE A sur ce secteur.\n\nDisponible par téléphone quand vous le souhaitez.\n\n[Votre nom] — [Votre agence]`},
-        {id:5,emoji:'🏠',type:'Maison',source:'PAP',titre:'Maison de ville — Villeurbanne',adresse:'45 cours Émile Zola, Villeurbanne',prix:390000,surface:110,pieces:4,etage:'R+1',dpe:'E',date:'Il y a 5 jours',statut:'ignore',potentiel:'faible',score:28,score_desc:'DPE E rédhibitoire, prix au-dessus du marché, annonce ancienne. Propriétaire probablement peu flexible.',
-        points:[
-          {ico:'📐',cls:'pic-b',label:'Surface correcte',desc:'110m² pour un T4 reste recherché. Seul point positif objectif du dossier.'},
-          {ico:'⚠️',cls:'pic-r',label:'DPE E — contrainte majeure',desc:'Obligation rénovation avant 2028. Travaux estimés 25 000€ à 40 000€.'},
-        ],
-        approche:'Dossier difficile. Si vous le prenez, préparez le propriétaire à une décote liée au DPE. N\'engagez pas trop de temps avant une conversation franche sur le prix réaliste.',
-        mail_objet:'Votre maison cours Zola — point sur le marché',
-        mail_corps:`Bonjour,\n\nJ'ai pris connaissance de votre annonce pour la maison cours Émile Zola.\n\nJe voulais vous partager quelques observations sur le marché actuel, notamment l'impact du DPE sur les prix et délais de vente dans votre secteur.\n\nSeriez-vous disponible pour un échange de 10 minutes ?\n\nBien cordialement,\n[Votre nom] — [Votre agence]`},
-      ];
+  <!-- ══════════════════════════════════════════
+       CORPS DE L'APPLICATION
+       Sidebar gauche + panneau de détail droit
+       ══════════════════════════════════════════ -->
+  <div class="app-body">
 
-      let selectedId=null,potFilter='all';
+    <!-- ── SIDEBAR ─────────────────────────── -->
+    <div class="sidebar">
 
-      const BASE = 'leadflow-platform-production.up.railway.app'; // Railway en prod
-      //let BIENS  = [];
+      <!-- Recherche texte — oninput déclenche renderList() -->
+      <div class="sidebar-search">
+        <div class="search-wrap">
+          <span class="search-ico">🔍</span>
+          <input class="search-input" id="search-input" placeholder="Rechercher…" oninput="renderList()">
+        </div>
+      </div>
 
-      function init(){
-  const now=new Date();
-  document.getElementById('date-badge').textContent='Scraping du '+now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+' à 08h00';
-  updateStats();renderList();
-}
+      <!-- Filtres potentiel — gérés par setPot() -->
+      <div class="pot-pills">
+        <button class="ppill active" onclick="setPot(this,'all')">Tous</button>
+        <button class="ppill" onclick="setPot(this,'fort')">⬤ Fort</button>
+        <button class="ppill" onclick="setPot(this,'moyen')">⬤ Moyen</button>
+        <button class="ppill" onclick="setPot(this,'faible')">⬤ Faible</button>
+      </div>
 
-      async function init2() {
-        try {
-          const res  = await fetch(`${BASE}/api/pige/biens`);
-          BIENS = await res.json();
-          updateStats();
-          renderList();
-          if (BIENS.length > 0) {
-            toast('🔍', 'Pige chargée', `${BIENS.length} biens analysés`);
-          }
-          // Polling toutes les 30 secondes pour les nouveaux biens
-          setInterval(async () => {
-            const r = await fetch(`${BASE}/api/pige/biens`);
-            const nouveaux = await r.json();
-            if (nouveaux.length > BIENS.length) {
-              const diff = nouveaux.length - BIENS.length;
-              BIENS = nouveaux;
-              updateStats();
-              renderList();
-              toast('🆕', `${diff} nouveau${diff>1?'x':''} bien${diff>1?'s':''}`, 'Pige mise à jour');
-            }
-          }, 30000);
-        } catch(e) {
-          console.error('Serveur pige non disponible');
+      <!-- Compteur mis à jour par renderList() -->
+      <div class="sidebar-count">
+        <span class="count-txt">Biens affichés</span>
+        <span class="count-num" id="bien-count">0</span>
+      </div>
+
+      <!-- Liste des cartes — injectée par renderList() -->
+      <div class="bien-list" id="bien-list"></div>
+    </div>
+
+    <!-- ── PANNEAU DE DÉTAIL ──────────────── -->
+    <div class="detail-pane">
+
+      <!-- État vide — visible tant qu'aucun bien n'est sélectionné -->
+      <div class="detail-empty" id="detail-empty">
+        <div class="detail-empty-icon">🏠</div>
+        <div class="detail-empty-txt">Sélectionnez un bien pour voir l'analyse</div>
+      </div>
+
+      <!-- Détail — masqué par défaut, affiché et rempli par sel() -->
+      <div class="detail-scroll" id="detail-scroll" style="display:none;"></div>
+    </div>
+
+  </div>
+
+  <!-- Zone des toasts (notifications) -->
+  <div class="toast-wrap" id="toasts"></div>
+
+
+  <script>
+    // ══════════════════════════════════════════════════════════════
+    // CONFIGURATION
+    // ══════════════════════════════════════════════════════════════
+
+    // URL de base du serveur Railway
+    // ⚠️ Toujours avec https:// — sans slash final
+    const BASE = 'https://leadflow-platform-production.up.railway.app';
+
+    // Tableau des biens chargés depuis le serveur
+    let BIENS = [];
+
+    // ID du bien actuellement affiché dans le panneau de détail
+    let selectedId = null;
+
+    // Filtre actif sur le potentiel : 'all' | 'fort' | 'moyen' | 'faible'
+    let potFilter = 'all';
+
+
+    // ══════════════════════════════════════════════════════════════
+    // INITIALISATION
+    // Appelée au chargement de la page
+    // 1. Met à jour la date dans le header
+    // 2. Charge les biens depuis le serveur
+    // 3. Lance le polling toutes les 30 secondes
+    // ══════════════════════════════════════════════════════════════
+    async function init() {
+      // Affiche la date du scraping dans le badge header
+      const now = new Date();
+      document.getElementById('date-badge').textContent =
+        'Scraping du ' + now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à 08h00';
+
+      try {
+        // Chargement initial des biens
+        const res = await fetch(`${BASE}/api/pige/biens`);
+        BIENS = await res.json();
+        updateStats();
+        renderList();
+        if (BIENS.length > 0) {
+          toast('🔍', 'Pige chargée', `${BIENS.length} biens analysés`);
         }
-      }
 
-      function updateStats(){
-        document.getElementById('s-total').textContent=BIENS.length;
-        document.getElementById('s-fort').textContent=BIENS.filter(b=>b.potentiel==='fort').length;
-        document.getElementById('s-new').textContent=BIENS.filter(b=>b.statut==='new').length;
-        document.getElementById('s-sent').textContent=BIENS.filter(b=>b.statut==='sent').length;
-      }
-      function setPot(el,val){
-        potFilter=val;
-        document.querySelectorAll('.ppill').forEach(p=>p.classList.remove('active'));
-        el.classList.add('active');renderList();
-      }
-      function renderList(){
-        const q=document.getElementById('search-input').value.toLowerCase();
-        const f=BIENS.filter(b=>(potFilter==='all'||b.potentiel===potFilter)&&(!q||b.titre.toLowerCase().includes(q)||b.adresse.toLowerCase().includes(q)));
-        document.getElementById('bien-count').textContent=f.length;
-        const stC={new:'var(--green)',sent:'#3a70c8',contact:'var(--gold)',ignore:'var(--pale)'};
-        const stL={new:'Nouveau',sent:'Envoyé',contact:'Contacté',ignore:'Ignoré'};
-        const pdC={fort:'pd-fort',moyen:'pd-moyen',faible:'pd-faible'};
-        document.getElementById('bien-list').innerHTML=f.map(b=>`
-          <div class="bcard ${selectedId===b.id?'active':''}" onclick="sel(${b.id})">
-            <div class="bcard-row1">
-              <div><div class="bcard-title">${b.emoji} ${b.titre}</div><div class="bcard-addr">${b.adresse}</div></div>
-              <div class="pot-dot ${pdC[b.potentiel]}"></div>
-            </div>
-            <div class="bcard-row2">
-              <div class="bcard-prix">${b.prix.toLocaleString('fr-FR')} €</div>
-              <div class="bcard-meta">${b.surface}m² · DPE ${b.dpe} · <span style="color:${stC[b.statut]};font-weight:500">${stL[b.statut]}</span></div>
-            </div>
-          </div>`).join('');
-      }
+        // Polling toutes les 30 secondes
+        // Si n8n a ajouté de nouveaux biens, on rafraîchit automatiquement
+        setInterval(async () => {
+          const r = await fetch(`${BASE}/api/pige/biens`);
+          const nouveaux = await r.json();
+          if (nouveaux.length > BIENS.length) {
+            const diff = nouveaux.length - BIENS.length;
+            BIENS = nouveaux;
+            updateStats();
+            renderList();
+            toast('🆕', `${diff} nouveau${diff > 1 ? 'x' : ''} bien${diff > 1 ? 's' : ''}`, 'Pige mise à jour');
+          }
+        }, 30000);
 
-      // ══════════════════════════════════════════════════════════════
-// SÉLECTION D'UN BIEN
-// Appelée au clic sur une card — affiche le détail complet
-// Normalise les champs pour compatibilité avec les données n8n
-// (n8n envoie : localisation, analyse, script, accroche)
-// (dashboard attend : adresse, score_desc, approche, mail_corps)
-// ══════════════════════════════════════════════════════════════
-function sel(id) {
-  selectedId = id;
- 
-  // Normalisation des champs — compatibilité n8n ↔ dashboard
-  // Les champs venant de n8n peuvent avoir des noms différents
-  let raw = BIENS.find(x => x.id === id);
-  if (raw) { //return;
- 
-  const c = {
-    id:         raw.id,
-    type:       raw.type       || 'Appartement',
-    emoji:      raw.emoji      || '🏠',
-    titre:      raw.titre      || raw.localisation || 'Bien sans titre',
-    adresse:    raw.adresse    || raw.localisation  || '—',
-    prix:       parseInt(raw.prix)     || 0,
-    surface:    parseInt(raw.surface)  || 0,
-    pieces:     parseInt(raw.pieces)   || 0,
-    etage:      raw.etage      || '—',
-    dpe:        raw.dpe        || '?',
-    source:     raw.source     || 'PAP',
-    url:        raw.url        || '',
-    date:       raw.date       || "Aujourd'hui",
-    statut:     raw.statut     || 'new',
-    // Potentiel : utilise le champ direct ou le déduit du score
-    potentiel:  raw.potentiel  || (raw.score >= 70 ? 'fort' : raw.score >= 40 ? 'moyen' : 'faible'),
-    score:      parseInt(raw.score)    || 0,
-    // score_desc peut venir du champ 'analyse' de n8n
-    score_desc: raw.score_desc || raw.analyse || '',
-    // points : tableau de points forts — ou fallback depuis analyse texte
-    points: raw.points || (raw.analyse ? [
-      { ico: '🔍', cls: 'pic-g', label: 'Analyse IA', desc: raw.analyse }
-    ] : []),
-    // approche peut venir du champ 'script' de n8n
-    approche:   raw.approche   || raw.script   || '',
-    mail_objet: raw.mail_objet || `Votre bien — ${raw.localisation || raw.adresse || ''}`,
-    // mail_corps peut venir du champ 'accroche' de n8n
-    mail_corps: raw.mail_corps || raw.accroche || ''
-  };}
- 
-  // Active le bouton PDF maintenant qu'un bien est sélectionné
-  const btnPdf = document.getElementById('btn-pdf');
-  if (btnPdf) btnPdf.disabled = false;
- 
-  // Re-render la liste pour mettre à jour la card active
-  renderList();
- 
-  // Cache l'état vide, affiche le détail
-  document.getElementById('detail-empty').style.display = 'none';
-  const sc = document.getElementById('detail-scroll');
-  sc.style.display = 'flex';
- 
-  // Correspondances potentiel → classes CSS
-  const ptCls   = { fort: 'pt-f',  moyen: 'pt-m',  faible: 'pt-w'  };
-  const ptLabel = { fort: '⭐ Fort potentiel', moyen: '🔶 Potentiel moyen', faible: '🔻 Faible potentiel' };
-  const psCls   = { fort: 'ps-f',  moyen: 'ps-m',  faible: 'ps-w'  };
-  const pbCls   = { fort: 'pb-f',  moyen: 'pb-m',  faible: 'pb-w'  };
-  const ptScore = { fort: 'Fort',  moyen: 'Moyen',  faible: 'Faible' };
+      } catch(e) {
+        console.error('Serveur non disponible :', e);
+        toast('⚠️', 'Serveur non disponible', 'Vérifiez que le serveur Railway tourne');
+      }
+    }
 
-  const b = BIENS.find(x => x.id === id);
- 
-  // Injection du HTML du détail complet
-        sc.innerHTML=`
-          <div class="dh-wrap">
-            <div class="dh-top">
-              <div><div class="dh-source">${b.source} · ${b.date}</div><div class="dh-title">${b.emoji} ${b.titre}</div><div class="dh-addr">📍 ${b.adresse}</div></div>
-              <div><div class="dh-prix">${b.prix.toLocaleString('fr-FR')} €</div><div class="dh-m2">${Math.round(b.prix/b.surface).toLocaleString('fr-FR')} €/m²</div></div>
-            </div>
-            <div class="dh-tags">
-              <span class="dh-tag">${b.surface} m²</span><span class="dh-tag">${b.pieces} pièces</span>
-              <span class="dh-tag">${b.etage}</span><span class="dh-tag">DPE ${b.dpe}</span>
-              <span class="${ptCls[b.potentiel]}">${ptLabel[b.potentiel]}</span>
-            </div>
-            <div class="dh-actions">
-              <button class="btn-sm btn-send" onclick="marquer(${b.id},'sent')">✉️ Marquer envoyé</button>
-              <button class="btn-sm btn-ok" onclick="marquer(${b.id},'contact')">✅ Contacté</button>
-              <button class="btn-sm btn-skip" onclick="marquer(${b.id},'ignore')">Ignorer</button>
-            </div>
-          </div>
-          <div>
-            <div class="section-title">Points forts du bien</div>
-            <div class="points-grid">${b.points.map(p=>`
-              <div class="point-card">
-                <div class="point-ico ${p.cls}">${p.ico}</div>
-                <div><div class="point-label">${p.label}</div><div class="point-desc">${p.desc}</div></div>
-              </div>`).join('')}</div>
-          </div>
-          <div class="two-cols">
+
+    // ══════════════════════════════════════════════════════════════
+    // MISE À JOUR DES STATISTIQUES
+    // Recompte les biens et met à jour les 4 compteurs en haut
+    // ══════════════════════════════════════════════════════════════
+    function updateStats() {
+      document.getElementById('s-total').textContent = BIENS.length;
+      document.getElementById('s-fort').textContent  = BIENS.filter(b => b.potentiel === 'fort').length;
+      document.getElementById('s-new').textContent   = BIENS.filter(b => b.statut === 'new').length;
+      document.getElementById('s-sent').textContent  = BIENS.filter(b => b.statut === 'sent').length;
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // FILTRE PAR POTENTIEL
+    // Appelé par les boutons pills — met à jour potFilter et re-render
+    // ══════════════════════════════════════════════════════════════
+    function setPot(el, val) {
+      potFilter = val;
+      document.querySelectorAll('.ppill').forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      renderList();
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // RENDU DE LA LISTE
+    // Filtre BIENS selon potFilter + recherche texte
+    // Génère les cartes HTML et les injecte dans #bien-list
+    // ══════════════════════════════════════════════════════════════
+    function renderList() {
+      const q = document.getElementById('search-input').value.toLowerCase();
+
+      const filtered = BIENS.filter(b =>
+        (potFilter === 'all' || b.potentiel === potFilter) &&
+        (!q || b.titre.toLowerCase().includes(q) || b.adresse.toLowerCase().includes(q))
+      );
+
+      document.getElementById('bien-count').textContent = filtered.length;
+
+      // Correspondances statut → couleur et label pour la meta ligne
+      const stColor = { new: 'var(--green)', sent: '#3a70c8', contact: 'var(--gold)', ignore: 'var(--pale)' };
+      const stLabel = { new: 'Nouveau', sent: 'Envoyé', contact: 'Contacté', ignore: 'Ignoré' };
+      const potDot  = { fort: 'pd-fort', moyen: 'pd-moyen', faible: 'pd-faible' };
+
+      document.getElementById('bien-list').innerHTML = filtered.map(b => `
+        <div class="bcard ${selectedId === b.id ? 'active' : ''}" onclick="sel('${b.id}')">
+          <div class="bcard-row1">
             <div>
-              <div class="section-title">Potentiel mandat</div>
-              <div class="pot-card">
-                <div class="pot-lbl">Score IA</div>
-                <div class="pot-score ${psCls[b.potentiel]}">${ptScore[b.potentiel]}</div>
-                <div class="pot-bar-wrap"><div class="pot-bar ${pbCls[b.potentiel]}" style="width:${b.score}%"></div></div>
-                <div class="pot-desc">${b.score_desc}</div>
-              </div>
+              <div class="bcard-title">${b.emoji || '🏠'} ${b.titre || b.adresse}</div>
+              <div class="bcard-addr">${b.adresse}</div>
+            </div>
+            <div class="pot-dot ${potDot[b.potentiel] || 'pd-moyen'}"></div>
+          </div>
+          <div class="bcard-row2">
+            <div class="bcard-prix">${(parseInt(b.prix) || 0).toLocaleString('fr-FR')} €</div>
+            <div class="bcard-meta">
+              ${b.surface || '?'}m² · DPE ${b.dpe || '?'} ·
+              <span style="color:${stColor[b.statut] || stColor.new};font-weight:500">
+                ${stLabel[b.statut] || 'Nouveau'}
+              </span>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // SÉLECTION D'UN BIEN
+    // Appelée au clic sur une card
+    // Normalise les champs pour compatibilité n8n ↔ dashboard :
+    //   n8n peut envoyer : localisation, analyse, script, sript, accroche
+    //   dashboard attend : adresse, score_desc, approche, mail_corps
+    // ══════════════════════════════════════════════════════════════
+    function sel(id) {
+      // Comparaison en String des deux côtés
+      // (n8n envoie des IDs string, les données démo utilisent des numbers)
+      const raw = BIENS.find(x => String(x.id) === String(id));
+      if (!raw) return;
+
+      selectedId = id;
+
+      // ── Normalisation des champs ──────────────────────────────
+      const b = {
+        id:         raw.id,
+        type:       raw.type       || 'Appartement',
+        emoji:      raw.emoji      || '🏠',
+        titre:      raw.titre      || raw.localisation || 'Bien sans titre',
+        adresse:    raw.adresse    || raw.localisation || '—',
+        prix:       parseInt(raw.prix)    || 0,
+        surface:    parseInt(raw.surface) || 0,
+        pieces:     parseInt(raw.pieces)  || 0,
+        // 'etages' (avec s) est une typo connue de n8n — on gère les deux
+        etage:      raw.etage  || raw.etages || '—',
+        dpe:        raw.dpe        || '?',
+        source:     raw.source     || 'PAP',
+        date:       raw.date       || "Aujourd'hui",
+        statut:     raw.statut     || 'new',
+        // Potentiel déduit du score si absent
+        potentiel:  raw.potentiel  || (raw.score >= 70 ? 'fort' : raw.score >= 40 ? 'moyen' : 'faible'),
+        score:      parseInt(raw.score) || 0,
+        // score_desc peut venir de 'score_raison' ou 'analyse'
+        score_desc: raw.score_desc || raw.score_raison || raw.analyse || '',
+        // Points forts : tableau ou fallback depuis les champs texte n8n
+        points: raw.points || [
+          raw.accroche     && { ico: '⭐', cls: 'pic-o', label: 'Point fort',  desc: raw.accroche },
+          raw.score_raison && { ico: '🔍', cls: 'pic-g', label: 'Analyse IA', desc: raw.score_raison },
+        ].filter(Boolean),
+        // 'sript' est une typo connue de n8n — on gère les deux
+        approche:   raw.approche   || raw.script || raw.sript || '',
+        mail_objet: raw.mail_objet || `Votre bien — ${raw.adresse || raw.localisation || ''}`,
+        // mail_corps peut venir de 'accroche' ou 'sript'
+        mail_corps: raw.mail_corps || raw.accroche || raw.sript || ''
+      };
+
+      // Active le bouton PDF
+      const btnPdf = document.getElementById('btn-pdf');
+      if (btnPdf) btnPdf.disabled = false;
+
+      // Re-render la liste pour mettre la carte sélectionnée en .active
+      renderList();
+
+      // Cache l'état vide, affiche le panneau de détail
+      document.getElementById('detail-empty').style.display = 'none';
+      const sc = document.getElementById('detail-scroll');
+      sc.style.display = 'flex';
+
+      // Correspondances potentiel → classes CSS
+      const ptCls   = { fort: 'pt-f',  moyen: 'pt-m',  faible: 'pt-w' };
+      const ptLabel = { fort: '⭐ Fort potentiel', moyen: '🔶 Potentiel moyen', faible: '🔻 Faible potentiel' };
+      const psCls   = { fort: 'ps-f',  moyen: 'ps-m',  faible: 'ps-w' };
+      const pbCls   = { fort: 'pb-f',  moyen: 'pb-m',  faible: 'pb-w' };
+      const ptScore = { fort: 'Fort',  moyen: 'Moyen',  faible: 'Faible' };
+
+      // Injection du HTML complet dans le panneau de détail
+      sc.innerHTML = `
+
+        <!-- Carte principale : source, titre, prix, tags, actions -->
+        <div class="dh-wrap">
+          <div class="dh-top">
+            <div>
+              <div class="dh-source">${b.source} · ${b.date}</div>
+              <div class="dh-title">${b.emoji} ${b.titre}</div>
+              <div class="dh-addr">📍 ${b.adresse}</div>
             </div>
             <div>
-              <div class="section-title">Stratégie d'approche</div>
-              <div class="approche-card">
-                <div class="approche-lbl">Recommandation IA</div>
-                <div class="approche-txt">${b.approche}</div>
-              </div>
+              <div class="dh-prix">${b.prix.toLocaleString('fr-FR')} €</div>
+              <div class="dh-m2">${b.surface > 0 ? Math.round(b.prix / b.surface).toLocaleString('fr-FR') + ' €/m²' : '—'}</div>
             </div>
           </div>
-          <div>
-            <div class="section-title">Mail d'approche</div>
-            <div class="mail-wrap">
-              <div class="mail-head">
-                <div class="mail-objet">Objet : ${b.mail_objet}</div>
-                <button class="mail-copy" onclick="copier(${b.id})">📋 Copier</button>
-              </div>
-              <div class="mail-body">${b.mail_corps}</div>
-            </div>
-          </div>`;
-      }
-      // synchroniser avec le serveur
-      async function marquer(id, statut) {
-        const b = BIENS.find(x => x.id === id);
-        if (!b) return;
-        b.statut = statut;
-        // Sync serveur
-        fetch(`${BASE}/api/pige/bien/${id}`, {
-          method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ statut })
-        });
-        updateStats(); renderList();
-        const l = { sent:'Marqué envoyé', contact:'Contacté', ignore:'Ignoré' };
-        toast('✅', l[statut], b.titre);
-        sel(id);
-      }
-
-      function copier(id){
-        const b=BIENS.find(x=>x.id===id);if(!b)return;
-        navigator.clipboard.writeText(b.mail_corps).catch(()=>{});
-        toast('📋','Copié','Mail prêt à coller');
-      }
-      function exportPDF(){
-        if(!selectedId) return;
-        const b=BIENS.find(x=>x.id===selectedId);
-        if(!b) return;
-        const now=new Date();
-        const ds=now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-        const pvCol={fort:'#2a8a60',moyen:'#c87020',faible:'#c84040'};
-        const pvBg ={fort:'rgba(42,138,96,.08)',moyen:'rgba(200,112,32,.07)',faible:'rgba(200,64,64,.07)'};
-        const pvLbl={fort:'⭐ Fort potentiel',moyen:'🔶 Potentiel moyen',faible:'🔻 Faible potentiel'};
-
-        const pts = b.points.map(p=>`
-          <div class="pt">
-            <div class="pt-header"><span class="pt-ico">${p.ico}</span><span class="pt-title">${p.label}</span></div>
-            <div class="pt-body">${p.desc}</div>
-          </div>`).join('');
-
-        const mailParas = b.mail_corps.split('\n\n')
-          .map(p=>`<p>${p.replace(/\n/g,' ')}</p>`).join('');
-
-        const html=`<!DOCTYPE html>
-      <html lang="fr">
-      <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>Fiche pige — ${b.titre}</title>
-      <style>
-      /* Reset */
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-      /* Print config */
-      @media print {
-        @page { size: A4 portrait; margin: 0; }
-        html, body { height: 297mm; width: 210mm; }
-        .page { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; }
-        .no-print { display: none !important; }
-      }
-
-      /* Base */
-      html { background: #e8e0d0; min-height: 100vh; }
-      body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        font-size: 11.5px;
-        line-height: 1.6;
-        color: #1c1a16;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-        padding: 24px;
-      }
-
-      /* Page container — simule les marges A4 */
-      .page {
-        background: white;
-        width: 100%;
-        max-width: 720px;
-        margin: 0 auto;
-        padding: 36px 40px 36px 40px;
-        border-radius: 4px;
-        box-shadow: 0 4px 40px rgba(0,0,0,.15);
-        min-height: 920px;
-        display: flex;
-        flex-direction: column;
-        gap: 0;
-      }
-
-      /* Bande dorée en haut */
-      .page-stripe {
-        height: 4px;
-        background: linear-gradient(90deg, #b8893a, #d4a853, #b8893a);
-        margin: -36px -40px 28px -40px;
-        border-radius: 4px 4px 0 0;
-      }
-
-      /* ── Header ── */
-      .doc-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        padding-bottom: 20px;
-        border-bottom: 1.5px solid #1c1a16;
-        margin-bottom: 26px;
-        gap: 20px;
-      }
-      .dh-left { flex: 1; }
-      .dh-eyebrow {
-        font-size: 8px; color: #b8893a;
-        text-transform: uppercase; letter-spacing: 3px;
-        font-weight: 700; margin-bottom: 6px;
-      }
-      .dh-title {
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: 21px; font-weight: 400;
-        color: #1c1a16; margin-bottom: 4px;
-        line-height: 1.25;
-      }
-      .dh-addr { font-size: 11px; color: #8a8478; margin-bottom: 10px; }
-      .dh-tags { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
-      .tag {
-        background: #f0ebe0; border: 1px solid #e0d8c8;
-        border-radius: 4px; padding: 2px 8px;
-        font-size: 9px; color: #4a4640;
-      }
-      .pot-tag {
-        padding: 2px 10px; border-radius: 4px;
-        font-size: 9px; font-weight: 700;
-        border: 1px solid; letter-spacing: .3px;
-        color: ${pvCol[b.potentiel]};
-        border-color: ${pvCol[b.potentiel]};
-        background: ${pvBg[b.potentiel]};
-      }
-      .dh-right { text-align: right; flex-shrink: 0; }
-      .dh-prix {
-        font-family: Georgia, serif;
-        font-size: 30px; font-weight: 600;
-        color: #b8893a; line-height: 1;
-        margin-bottom: 4px;
-      }
-      .dh-m2 { font-size: 10px; color: #8a8478; margin-bottom: 6px; }
-      .dh-source {
-        display: inline-block;
-        background: #f0ebe0; border: 1px solid #e0d8c8;
-        border-radius: 4px; padding: 2px 8px;
-        font-size: 9px; color: #8a8478;
-      }
-
-      /* ── Section title ── */
-      .sec-title {
-        font-size: 8px; color: #8a8478;
-        text-transform: uppercase; letter-spacing: 2.5px;
-        font-weight: 700; margin-bottom: 10px;
-        display: flex; align-items: center; gap: 10px;
-      }
-      .sec-title::after {
-        content: ''; flex: 1; height: 1px; background: #e8e0d0;
-      }
-
-      /* ── Points forts ── */
-      .section-pts { margin-bottom: 22px; }
-      .pts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-      .pt {
-        background: #f7f4ee; border: 1px solid #e8e0d0;
-        border-radius: 8px; padding: 10px 12px;
-      }
-      .pt-header {
-        display: flex; align-items: center; gap: 7px; margin-bottom: 4px;
-      }
-      .pt-ico { font-size: 15px; flex-shrink: 0; }
-      .pt-title { font-size: 10.5px; font-weight: 600; color: #1c1a16; }
-      .pt-body { font-size: 9.5px; color: #4a4640; line-height: 1.55; }
-
-      /* ── Approche ── */
-      .section-approche { margin-bottom: 22px; }
-      .approche-card {
-        background: #1c1a16; border-radius: 10px;
-        padding: 16px 18px;
-        position: relative; overflow: hidden;
-      }
-      .approche-card::before {
-        content: '';
-        position: absolute; top: -30px; right: -30px;
-        width: 100px; height: 100px; border-radius: 50%;
-        background: radial-gradient(circle, rgba(184,137,58,.12) 0%, transparent 70%);
-      }
-      .approche-lbl {
-        font-size: 8px; color: #b8893a;
-        text-transform: uppercase; letter-spacing: 2.5px;
-        font-weight: 700; margin-bottom: 8px;
-      }
-      .approche-score {
-        display: inline-block; margin-left: 8px;
-        background: rgba(184,137,58,.15); color: #d4a853;
-        padding: 1px 8px; border-radius: 10px;
-        font-size: 9px; font-weight: 600;
-        border: 1px solid rgba(184,137,58,.25);
-      }
-      .approche-txt {
-        font-size: 11px; color: rgba(247,244,238,.88);
-        line-height: 1.75; position: relative; z-index: 1;
-      }
-
-      /* ── Mail ── */
-      .section-mail { margin-bottom: 22px; }
-      .mail-card { border: 1px solid #e0d8c8; border-radius: 10px; overflow: hidden; }
-      .mail-card-head {
-        background: #1c1a16; padding: 12px 16px;
-        display: flex; align-items: center; gap: 10px;
-      }
-      .mail-dot { width: 7px; height: 7px; border-radius: 50%; background: #b8893a; flex-shrink: 0; }
-      .mail-subject {
-        font-family: Georgia, serif; font-size: 13px;
-        font-weight: 300; color: #f7f4ee;
-      }
-      .mail-card-body { padding: 16px 18px; background: #faf8f4; }
-      .mail-card-body p {
-        font-size: 10.5px; color: #4a4640;
-        line-height: 1.8; margin-bottom: 10px;
-      }
-      .mail-card-body p:last-child { margin-bottom: 0; }
-
-      /* ── Footer ── */
-      .doc-footer {
-        margin-top: auto; padding-top: 16px;
-        border-top: 1px solid #e8e0d0;
-        display: flex; justify-content: space-between;
-        align-items: center;
-      }
-      .footer-brand {
-        font-family: Georgia, serif; font-size: 13px; color: #8a8478;
-      }
-      .footer-brand em { font-style: italic; color: #b8893a; }
-      .footer-right { text-align: right; }
-      .footer-date { font-size: 9px; color: #b8b0a0; }
-
-      /* Bouton impression */
-      .print-btn {
-        display: block; margin: 20px auto 0;
-        background: linear-gradient(135deg, #b8893a, #d4a853);
-        color: white; border: none; padding: 10px 28px;
-        border-radius: 8px; font-size: 13px; font-weight: 600;
-        cursor: pointer; font-family: inherit;
-        transition: all .2s;
-      }
-      .print-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(184,137,58,.3); }
-      </style>
-      </head>
-      <body>
-
-      <div class="page">
-        <div class="page-stripe"></div>
-
-        <!-- Header -->
-        <div class="doc-header">
-          <div class="dh-left">
-            <div class="dh-eyebrow">${b.source} &nbsp;·&nbsp; Annonce particulier &nbsp;·&nbsp; ${b.date}</div>
-            <div class="dh-title">${b.titre}</div>
-            <div class="dh-addr">📍 &nbsp;${b.adresse}</div>
-            <div class="dh-tags">
-              ${[b.surface+'&thinsp;m²', b.pieces+' pièces', b.etage, 'DPE&nbsp;'+b.dpe].map(t=>'<span class="tag">'+t+'</span>').join('')}
-              <span class="pot-tag">${pvLbl[b.potentiel]}</span>
-            </div>
+          <div class="dh-tags">
+            <span class="dh-tag">${b.surface} m²</span>
+            <span class="dh-tag">${b.pieces} pièces</span>
+            <span class="dh-tag">${b.etage}</span>
+            <span class="dh-tag">DPE ${b.dpe}</span>
+            <span class="${ptCls[b.potentiel] || 'pt-m'}">${ptLabel[b.potentiel] || '🔶 Moyen'}</span>
           </div>
-          <div class="dh-right">
-            <div class="dh-prix">${b.prix.toLocaleString('fr-FR')}&thinsp;€</div>
-            <div class="dh-m2">${Math.round(b.prix/b.surface).toLocaleString('fr-FR')}&thinsp;€/m²</div>
-            <div class="dh-source">${b.source}</div>
+          <div class="dh-actions">
+            <button class="btn-sm btn-send" onclick="marquer('${b.id}','sent')">✉️ Marquer envoyé</button>
+            <button class="btn-sm btn-ok"   onclick="marquer('${b.id}','contact')">✅ Contacté</button>
+            <button class="btn-sm btn-skip" onclick="marquer('${b.id}','ignore')">Ignorer</button>
           </div>
         </div>
 
         <!-- Points forts -->
-        <div class="section-pts">
-          <div class="sec-title">Points forts du bien</div>
-          <div class="pts-grid">${pts}</div>
+        <div>
+          <div class="section-title">Points forts du bien</div>
+          <div class="points-grid">
+            ${(b.points || []).map(p => `
+              <div class="point-card">
+                <div class="point-ico ${p.cls || 'pic-g'}">${p.ico || '📌'}</div>
+                <div>
+                  <div class="point-label">${p.label || ''}</div>
+                  <div class="point-desc">${p.desc || ''}</div>
+                </div>
+              </div>`).join('')}
+          </div>
         </div>
 
-        <!-- Stratégie -->
-        <div class="section-approche">
-          <div class="sec-title">Stratégie d'approche</div>
-          <div class="approche-card">
-            <div class="approche-lbl">
-              Recommandation IA
-              <span class="approche-score">Score ${b.score}/100</span>
+        <!-- Score IA + Stratégie côte à côte -->
+        <div class="two-cols">
+          <div>
+            <div class="section-title">Potentiel mandat</div>
+            <div class="pot-card">
+              <div class="pot-lbl">Score IA</div>
+              <div class="pot-score ${psCls[b.potentiel] || 'ps-m'}">${ptScore[b.potentiel] || 'Moyen'}</div>
+              <!-- Largeur de la barre = score en % -->
+              <div class="pot-bar-wrap">
+                <div class="pot-bar ${pbCls[b.potentiel] || 'pb-m'}" style="width:${b.score}%"></div>
+              </div>
+              <div class="pot-desc">${b.score_desc}</div>
             </div>
-            <div class="approche-txt">${b.approche}</div>
           </div>
-        </div>
-
-        <!-- Mail -->
-        <div class="section-mail">
-          <div class="sec-title">Mail d'approche suggéré</div>
-          <div class="mail-card">
-            <div class="mail-card-head">
-              <div class="mail-dot"></div>
-              <div class="mail-subject">Objet&nbsp;: ${b.mail_objet}</div>
+          <div>
+            <div class="section-title">Stratégie d'approche</div>
+            <div class="approche-card">
+              <div class="approche-lbl">Recommandation IA</div>
+              <div class="approche-txt">${b.approche}</div>
             </div>
-            <div class="mail-card-body">${mailParas}</div>
           </div>
         </div>
 
-        <!-- Footer -->
-        <div class="doc-footer">
-          <div class="footer-brand">Lead<em>Flow</em> &nbsp;·&nbsp; Pige automatisée</div>
-          <div class="footer-right">
-            <div class="footer-date">Généré le ${ds}</div>
+        <!-- Mail d'approche -->
+        <div>
+          <div class="section-title">Mail d'approche</div>
+          <div class="mail-wrap">
+            <div class="mail-head">
+              <div class="mail-objet">Objet : ${b.mail_objet}</div>
+              <!-- Copie le corps du mail dans le presse-papiers -->
+              <button class="mail-copy" onclick="copier('${b.id}')">📋 Copier</button>
+            </div>
+            <!-- white-space:pre-line dans le CSS préserve les sauts de ligne -->
+            <div class="mail-body">${b.mail_corps}</div>
           </div>
-        </div>
+        </div>`;
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // MARQUER LE STATUT D'UN BIEN
+    // Mise à jour locale immédiate + sync serveur en arrière-plan
+    // ══════════════════════════════════════════════════════════════
+    async function marquer(id, statut) {
+      const b = BIENS.find(x => String(x.id) === String(id));
+      if (!b) return;
+
+      // Mise à jour locale immédiate (sans attendre le serveur)
+      b.statut = statut;
+
+      // Sync serveur en arrière-plan — silencieux si échec
+      fetch(`${BASE}/api/pige/bien/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ statut })
+      }).catch(() => {});
+
+      updateStats();
+      renderList();
+
+      const labels = { sent: 'Marqué envoyé', contact: 'Contacté', ignore: 'Ignoré' };
+      toast('✅', labels[statut] || statut, b.titre);
+
+      // Re-affiche le détail avec le nouveau statut
+      sel(id);
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // COPIER LE MAIL DANS LE PRESSE-PAPIERS
+    // ══════════════════════════════════════════════════════════════
+    function copier(id) {
+      const b = BIENS.find(x => String(x.id) === String(id));
+      if (!b) return;
+      navigator.clipboard.writeText(b.mail_corps).catch(() => {});
+      toast('📋', 'Copié', 'Mail prêt à coller');
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // EXPORT PDF — FICHE DU BIEN SÉLECTIONNÉ
+    // Génère un fichier HTML standalone téléchargeable
+    // Le fichier contient un bouton "Imprimer" pour l'export PDF final
+    // Workflow : télécharger → ouvrir dans Chrome → Imprimer → PDF
+    // ══════════════════════════════════════════════════════════════
+    function exportPDF() {
+      if (!selectedId) return;
+      const raw = BIENS.find(x => String(x.id) === String(selectedId));
+      if (!raw) return;
+
+      // Normalisation identique à sel() pour éviter les champs undefined
+      const b = {
+        titre:      raw.titre      || raw.localisation || 'Bien sans titre',
+        adresse:    raw.adresse    || raw.localisation || '—',
+        prix:       parseInt(raw.prix)    || 0,
+        surface:    parseInt(raw.surface) || 0,
+        pieces:     parseInt(raw.pieces)  || 0,
+        etage:      raw.etage  || raw.etages || '—',
+        dpe:        raw.dpe        || '?',
+        source:     raw.source     || 'PAP',
+        date:       raw.date       || "Aujourd'hui",
+        potentiel:  raw.potentiel  || 'moyen',
+        score:      parseInt(raw.score) || 0,
+        points:     raw.points || [
+          raw.accroche     && { ico: '⭐', label: 'Point fort',  desc: raw.accroche },
+          raw.score_raison && { ico: '🔍', label: 'Analyse IA', desc: raw.score_raison },
+        ].filter(Boolean),
+        approche:   raw.approche   || raw.script || raw.sript || '',
+        mail_objet: raw.mail_objet || '',
+        mail_corps: raw.mail_corps || raw.accroche || ''
+      };
+
+      const now = new Date();
+      const ds  = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+      const pvCol = { fort: '#2a8a60', moyen: '#c87020', faible: '#c84040' };
+      const pvBg  = { fort: 'rgba(42,138,96,.08)', moyen: 'rgba(200,112,32,.07)', faible: 'rgba(200,64,64,.07)' };
+      const pvLbl = { fort: '⭐ Fort potentiel', moyen: '🔶 Potentiel moyen', faible: '🔻 Faible potentiel' };
+
+      // HTML des points forts pour la fiche
+      const ptsHtml = (b.points || []).map(p => `
+        <div class="pt">
+          <div class="pt-header">
+            <span class="pt-ico">${p.ico || '📌'}</span>
+            <span class="pt-title">${p.label || ''}</span>
+          </div>
+          <div class="pt-body">${p.desc || ''}</div>
+        </div>`).join('');
+
+      // Paragraphes du mail (split sur double saut de ligne)
+      const mailHtml = (b.mail_corps || '')
+        .split('\n\n')
+        .map(p => `<p>${p.replace(/\n/g, ' ')}</p>`)
+        .join('');
+
+      // ── HTML de la fiche standalone ────────────────────────────
+      const html = `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>Fiche — ${b.titre}</title>
+<style>
+/* Impression : marges nulles, la .page gère l'espace interne */
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  .page { box-shadow: none !important; border-radius: 0 !important; padding: 28px 32px !important; }
+  .no-print { display: none !important; }
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Fond gris visible en navigateur, disparaît à l'impression */
+html { background: #e8e0d0; min-height: 100vh; }
+body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 11.5px; line-height: 1.6; color: #1c1a16; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 24px; }
+/* Conteneur "page A4" avec marges internes et ombre */
+.page { background: white; width: 100%; max-width: 720px; margin: 0 auto; padding: 36px 40px; border-radius: 4px; box-shadow: 0 4px 40px rgba(0,0,0,.15); min-height: 920px; display: flex; flex-direction: column; }
+/* Bande dorée décorative en haut */
+.stripe { height: 4px; background: linear-gradient(90deg, #b8893a, #d4a853, #b8893a); margin: -36px -40px 28px -40px; border-radius: 4px 4px 0 0; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 20px; border-bottom: 1.5px solid #1c1a16; margin-bottom: 26px; gap: 20px; }
+.eyebrow { font-size: 8px; color: #b8893a; text-transform: uppercase; letter-spacing: 3px; font-weight: 700; margin-bottom: 6px; }
+.title { font-family: Georgia, serif; font-size: 21px; font-weight: 400; margin-bottom: 4px; line-height: 1.25; }
+.addr  { font-size: 11px; color: #8a8478; margin-bottom: 10px; }
+.tags  { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+.tag   { background: #f0ebe0; border: 1px solid #e0d8c8; border-radius: 4px; padding: 2px 8px; font-size: 9px; color: #4a4640; }
+.pot-tag { padding: 2px 10px; border-radius: 4px; font-size: 9px; font-weight: 700; border: 1px solid; color: ${pvCol[b.potentiel] || '#c87020'}; border-color: ${pvCol[b.potentiel] || '#c87020'}; background: ${pvBg[b.potentiel] || 'rgba(200,112,32,.07)'}; }
+.right { text-align: right; flex-shrink: 0; }
+.prix  { font-family: Georgia, serif; font-size: 30px; font-weight: 600; color: #b8893a; line-height: 1; margin-bottom: 4px; }
+.m2    { font-size: 10px; color: #8a8478; }
+.sec   { font-size: 8px; color: #8a8478; text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+.sec::after { content: ''; flex: 1; height: 1px; background: #e8e0d0; }
+.sec-pts { margin-bottom: 22px; }
+.pts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pt { background: #f7f4ee; border: 1px solid #e8e0d0; border-radius: 8px; padding: 10px 12px; }
+.pt-header { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
+.pt-ico { font-size: 15px; }
+.pt-title { font-size: 10.5px; font-weight: 600; }
+.pt-body { font-size: 9.5px; color: #4a4640; line-height: 1.55; }
+.sec-approche { margin-bottom: 22px; }
+.approche { background: #1c1a16; border-radius: 10px; padding: 16px 18px; }
+.app-lbl  { font-size: 8px; color: #b8893a; text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; margin-bottom: 8px; }
+.app-score { display: inline-block; margin-left: 8px; background: rgba(184,137,58,.15); color: #d4a853; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; border: 1px solid rgba(184,137,58,.25); }
+.app-txt  { font-size: 11px; color: rgba(247,244,238,.88); line-height: 1.75; }
+.sec-mail { margin-bottom: 22px; }
+.mail-card { border: 1px solid #e0d8c8; border-radius: 10px; overflow: hidden; }
+.mail-head { background: #1c1a16; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
+.mail-dot  { width: 7px; height: 7px; border-radius: 50%; background: #b8893a; flex-shrink: 0; }
+.mail-subj { font-family: Georgia, serif; font-size: 13px; font-weight: 300; color: #f7f4ee; }
+.mail-body { padding: 16px 18px; background: #faf8f4; }
+.mail-body p { font-size: 10.5px; color: #4a4640; line-height: 1.8; margin-bottom: 10px; }
+.mail-body p:last-child { margin-bottom: 0; }
+.footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #e8e0d0; display: flex; justify-content: space-between; align-items: center; }
+.footer-brand { font-family: Georgia, serif; font-size: 13px; color: #8a8478; }
+.footer-brand em { font-style: italic; color: #b8893a; }
+.footer-date { font-size: 9px; color: #b8b0a0; }
+.print-btn { display: block; margin: 20px auto 0; background: linear-gradient(135deg, #b8893a, #d4a853); color: white; border: none; padding: 10px 28px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.print-btn:hover { opacity: .9; }
+</style></head><body>
+<div class="page">
+  <div class="stripe"></div>
+  <div class="header">
+    <div>
+      <div class="eyebrow">${b.source} &nbsp;·&nbsp; Annonce particulier &nbsp;·&nbsp; ${b.date}</div>
+      <div class="title">${b.titre}</div>
+      <div class="addr">📍 &nbsp;${b.adresse}</div>
+      <div class="tags">
+        ${[b.surface + '&thinsp;m²', b.pieces + ' pièces', b.etage, 'DPE&nbsp;' + b.dpe].map(t => '<span class="tag">' + t + '</span>').join('')}
+        <span class="pot-tag">${pvLbl[b.potentiel] || pvLbl.moyen}</span>
       </div>
+    </div>
+    <div class="right">
+      <div class="prix">${b.prix.toLocaleString('fr-FR')}&thinsp;€</div>
+      <div class="m2">${b.surface > 0 ? Math.round(b.prix / b.surface).toLocaleString('fr-FR') + '&thinsp;€/m²' : '—'}</div>
+    </div>
+  </div>
+  <div class="sec-pts">
+    <div class="sec">Points forts du bien</div>
+    <div class="pts-grid">${ptsHtml}</div>
+  </div>
+  <div class="sec-approche">
+    <div class="sec">Stratégie d'approche</div>
+    <div class="approche">
+      <div class="app-lbl">Recommandation IA <span class="app-score">Score ${b.score}/100</span></div>
+      <div class="app-txt">${b.approche}</div>
+    </div>
+  </div>
+  <div class="sec-mail">
+    <div class="sec">Mail d'approche suggéré</div>
+    <div class="mail-card">
+      <div class="mail-head">
+        <div class="mail-dot"></div>
+        <div class="mail-subj">Objet&nbsp;: ${b.mail_objet}</div>
+      </div>
+      <div class="mail-body">${mailHtml}</div>
+    </div>
+  </div>
+  <div class="footer">
+    <div class="footer-brand">Lead<em>Flow</em> &nbsp;·&nbsp; Pige automatisée</div>
+    <div class="footer-date">Généré le ${ds}</div>
+  </div>
+</div>
+<button class="print-btn no-print" onclick="window.print()">🖨&nbsp; Imprimer / Enregistrer en PDF</button>
+</body></html>`;
 
-      <button class="print-btn no-print" onclick="window.print()">🖨&nbsp; Imprimer / Enregistrer en PDF</button>
+      // Téléchargement via Blob — crée un lien temporaire et le clique automatiquement
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = 'fiche-pige-' + (b.adresse || 'bien').replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().slice(0, 40) + '.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url); // libère la mémoire
 
-      </body>
-      </html>`;
+      toast('📄', 'Fiche téléchargée', 'Ouvre dans Chrome → Imprimer → PDF');
+    }
 
-        const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-        const url=URL.createObjectURL(blob);
-        const a=document.createElement('a');
-        a.href=url;
-        const nom=(b.adresse||'fiche').replace(/[^a-zA-Z0-9]/g,'-').toLowerCase().slice(0,40);
-        a.download='fiche-pige-'+nom+'.html';
-        document.body.appendChild(a);a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast('📄','Fiche téléchargée — ouvre le fichier et clique Imprimer',b.titre);
-      }
 
-      function toast(ico,title,desc){
-        const w=document.getElementById('toasts');
-        const e=document.createElement('div');
-        e.className='toast';
-        e.innerHTML=`<span style="font-size:15px">${ico}</span><div><div class="toast-t">${title}</div><div class="toast-d">${desc}</div></div>`;
-        w.appendChild(e);setTimeout(()=>e.remove(),3000);
-      }
-      init();
-    </script>
-  </body>
+    // ══════════════════════════════════════════════════════════════
+    // TOAST — notification temporaire (disparaît après 3 secondes)
+    // ══════════════════════════════════════════════════════════════
+    function toast(ico, title, desc) {
+      const wrap = document.getElementById('toasts');
+      const el   = document.createElement('div');
+      el.className = 'toast';
+      el.innerHTML = `<span style="font-size:15px">${ico}</span><div><div class="toast-t">${title}</div><div class="toast-d">${desc}</div></div>`;
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 3000);
+    }
+
+
+    // ══════════════════════════════════════════════════════════════
+    // DÉMARRAGE
+    // ══════════════════════════════════════════════════════════════
+    init();
+  </script>
+</body>
 </html>
