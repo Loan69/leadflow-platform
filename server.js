@@ -5,7 +5,7 @@ const app     = express();
 
 app.use(express.json());
 
-// CORS
+// ── CORS ─────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
@@ -42,9 +42,7 @@ app.post('/webhook/lead', async (req, res) => {
 // Dashboard leads récupère tous les leads
 app.get('/api/leads', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM leads ORDER BY created_at DESC'
-    );
+    const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
     res.json(result.rows);
   } catch(e) {
     res.status(500).json({ error: e.message });
@@ -114,9 +112,34 @@ app.patch('/api/emails/:id', async (req, res) => {
 // ── PIGE ─────────────────────────────────────────────────────
 
 // n8n envoie un bien analysé ici
+// Anti-doublon sur DEUX critères :
+//   1. id identique (ON CONFLICT DO NOTHING)
+//   2. url identique — vérification préalable avant INSERT
 app.post('/api/pige/bien', async (req, res) => {
   const b = req.body;
   try {
+    const id = String(b.id);
+
+    // ── Vérification doublon par URL ──────────────────────────
+    // Couvre le cas où n8n renvoie le même bien avec un id différent
+    if (b.url) {
+      const existing = await pool.query(
+        'SELECT id FROM biens_pige WHERE url = $1 LIMIT 1',
+        [b.url]
+      );
+      if (existing.rows.length > 0) {
+        // Bien déjà en base — on ignore silencieusement
+        console.log(`Doublon ignoré — URL déjà présente : ${b.url}`);
+        return res.json({ status: 'duplicate', message: 'Bien déjà en base (URL identique)' });
+      }
+    }
+
+    // ── INSERT avec ON CONFLICT sur l'id ─────────────────────
+    // Mapping des champs n8n → colonnes PostgreSQL :
+    //   b.date         → date (colonne renommée, retournée AS date par le GET)
+    //   b.approche || b.script || b.sript → approche (stratégie rédigée par Claude)
+    //   b.accroche     → accroche (point fort court, utilisé comme mail_corps fallback)
+    //   b.script || b.sript → script (mail complet rédigé par Claude)
     await pool.query(`
       INSERT INTO biens_pige
         (id, type, titre, adresse, prix, surface, pieces, etage, dpe,
@@ -125,37 +148,63 @@ app.post('/api/pige/bien', async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
       ON CONFLICT (id) DO NOTHING
     `, [
-      String(b.id), b.type, b.titre, b.adresse,
-      parseInt(b.prix) || 0,
-      parseInt(b.surface) || 0,
-      parseInt(b.pieces) || 0,
-      b.etage || b.etages || '—',
-      b.dpe, b.source, b.url, b.date,
-      b.potentiel, parseInt(b.score) || 0,
-      b.score_raison, b.script || b.sript || '',
-      b.accroche, b.script || b.sript || '',
-      b.emoji || '🏠'
+      id,
+      b.type   || '',
+      b.titre  || b.localisation || '',
+      b.adresse || b.localisation || '',
+      parseInt(b.prix)     || 0,
+      parseInt(b.surface)  || 0,
+      parseInt(b.pieces)   || 0,
+      b.etage  || b.etages || '—',
+      b.dpe    || '',
+      b.source || 'PAP',
+      b.url    || '',
+      // Stocke la date de l'annonce (champ 'date' ou 'date_annonce' selon n8n)
+      b.date_annonce || b.date || '',
+      b.potentiel || '',
+      parseInt(b.score) || 0,
+      b.score_raison || b.analyse || '',
+      // approche = stratégie complète rédigée par Claude
+      b.approche || b.script || b.sript || '',
+      // accroche = phrase courte / point fort (utilisée comme fallback mail_corps)
+      b.accroche || '',
+      // script = mail complet rédigé par Claude
+      b.script || b.sript || '',
+      b.emoji  || '🏠'
     ]);
+
+    console.log(`Bien inséré : ${id} — ${b.adresse || b.localisation}`);
     res.json({ status: 'ok' });
+
   } catch(e) {
-    console.error(e);
+    console.error('Erreur INSERT pige :', e.message);
     res.status(500).json({ error: e.message });
   }
 });
 
 // Dashboard pige récupère les biens
+// ── CORRECTION CLÉ ────────────────────────────────────────────
+// La colonne en base s'appelle 'date_annonce'
+// Le dashboard cherche 'date' dans les objets retournés
+// → on utilise AS pour renommer à la volée dans le SELECT
 app.get('/api/pige/biens', async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM biens_pige ORDER BY created_at DESC'
-    );
+    const result = await pool.query(`
+      SELECT
+        id, type, titre, adresse, prix, surface, pieces, etage, dpe,
+        source, url, statut, potentiel, score, score_raison,
+        approche, accroche, script, emoji, created_at,
+        date_annonce AS date
+      FROM biens_pige
+      ORDER BY created_at DESC
+    `);
     res.json(result.rows);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Mettre à jour statut d'un bien
+// Mettre à jour le statut d'un bien (marquer envoyé / contacté / ignoré)
 app.patch('/api/pige/bien/:id', async (req, res) => {
   try {
     await pool.query(
@@ -184,20 +233,20 @@ app.post('/api/mandat/log', async (req, res) => {
   }
 });
 
-// Stats pour le hub
+// ── STATS GLOBALES (hub) ─────────────────────────────────────
 app.get('/api/stats', async (req, res) => {
   try {
     const [leads, emails, biens, mandats] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM leads'),
-      pool.query('SELECT COUNT(*) FROM emails WHERE statut = $1', ['pending']),
-      pool.query('SELECT COUNT(*) FROM biens_pige WHERE potentiel = $1', ['fort']),
+      pool.query("SELECT COUNT(*) FROM emails WHERE statut = 'pending'"),
+      pool.query("SELECT COUNT(*) FROM biens_pige WHERE potentiel = 'fort'"),
       pool.query('SELECT COUNT(*) FROM dossiers_mandat'),
     ]);
     res.json({
-      leads_total:   parseInt(leads.rows[0].count),
-      emails_pending:parseInt(emails.rows[0].count),
-      pige_fort:     parseInt(biens.rows[0].count),
-      mandats_total: parseInt(mandats.rows[0].count),
+      leads_total:    parseInt(leads.rows[0].count),
+      emails_pending: parseInt(emails.rows[0].count),
+      pige_fort:      parseInt(biens.rows[0].count),
+      mandats_total:  parseInt(mandats.rows[0].count),
     });
   } catch(e) {
     res.status(500).json({ error: e.message });
