@@ -408,47 +408,58 @@
 
       // ══════════════════════════════════════════════════════════════
       // INITIALISATION
-      // Appelée au chargement de la page
       // 1. Met à jour la date dans le header
       // 2. Charge les biens depuis le serveur
-      // 3. Lance le polling toutes les 30 secondes
+      // 3. Lance un poll toutes les 5 secondes pour détecter
+      //    les nouveaux biens insérés par n8n — sans refresh
       // ══════════════════════════════════════════════════════════════
       async function init() {
-        // Affiche la date du scraping dans le badge header
         const now = new Date();
         document.getElementById('date-badge').textContent =
           'Scraping du ' + now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' à 08h00';
 
+        // ── Chargement initial ────────────────────────────────────
+        await chargerBiens();
+
+        // ── Poll toutes les 5 secondes ───────────────────────────
+        // Compare le nombre de biens — si ça change, on rafraîchit
+        setInterval(async () => {
+          try {
+            const res = await fetch(`${BASE}/api/pige/biens`);
+            const nouveaux = await res.json();
+            if (nouveaux.length !== BIENS.length) {
+              const diff = nouveaux.length - BIENS.length;
+              console.log(`[PIGE][POLL] ${diff > 0 ? '+' + diff + ' nouveau(x)' : 'changement'} → rafraîchissement`);
+              BIENS = nouveaux;
+              updateStats();
+              renderList();
+              if (diff > 0) {
+                toast('🆕', `${diff} nouveau${diff > 1 ? 'x' : ''} bien${diff > 1 ? 's' : ''}`, 'Mis à jour automatiquement');
+              }
+            }
+          } catch(e) {
+            console.warn('[PIGE][POLL] Serveur non disponible — prochaine tentative dans 5s');
+          }
+        }, 5000);
+      }
+
+      // Chargement initial des biens depuis le serveur
+      async function chargerBiens() {
         try {
-          // Chargement initial des biens
+          console.log('[PIGE] Chargement des biens...');
           const res = await fetch(`${BASE}/api/pige/biens`);
           BIENS = await res.json();
           updateStats();
           renderList();
+          console.log(`[PIGE] ✅ ${BIENS.length} biens chargés`);
           if (BIENS.length > 0) {
             toast('🔍', 'Pige chargée', `${BIENS.length} biens analysés`);
           }
-
-          // Polling toutes les 30 secondes
-          // Si n8n a ajouté de nouveaux biens, on rafraîchit automatiquement
-          setInterval(async () => {
-            const r = await fetch(`${BASE}/api/pige/biens`);
-            const nouveaux = await r.json();
-            if (nouveaux.length > BIENS.length) {
-              const diff = nouveaux.length - BIENS.length;
-              BIENS = nouveaux;
-              updateStats();
-              renderList();
-              toast('🆕', `${diff} nouveau${diff > 1 ? 'x' : ''} bien${diff > 1 ? 's' : ''}`, 'Pige mise à jour');
-            }
-          }, 30000);
-
         } catch(e) {
-          console.error('Serveur non disponible :', e);
+          console.error('[PIGE] ❌ Chargement échoué :', e);
           toast('⚠️', 'Serveur non disponible', 'Vérifiez que le serveur Railway tourne');
         }
       }
-
 
       // ══════════════════════════════════════════════════════════════
       // MISE À JOUR DES STATISTIQUES
