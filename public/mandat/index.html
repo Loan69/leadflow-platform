@@ -1,158 +1,481 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>LeadFlow — Dossier Mandat</title>
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --cream: #f7f4ee; --cream2: #f0ebe0; --ink: #1c1a16;
-    --ink3: #4a4640; --muted: #8a8478; --gold: #b8893a;
-    --gold2: #d4a853; --border: #e0d8c8;
-  }
-  body { font-family: 'Figtree', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
-  .card { background: white; border: 1px solid var(--border); border-radius: 16px; padding: 40px; width: 100%; max-width: 540px; }
-  .logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--muted); margin-bottom: 28px; }
-  .logo em { font-style: italic; color: var(--gold); }
-  h1 { font-size: 22px; font-weight: 400; margin-bottom: 6px; }
-  .sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
-  .field { margin-bottom: 16px; }
-  label { font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 6px; }
-  input { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-family: 'Figtree', sans-serif; font-size: 14px; color: var(--ink); background: var(--cream); outline: none; transition: border-color .2s; }
-  input:focus { border-color: var(--gold); background: white; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .btn { width: 100%; margin-top: 8px; background: linear-gradient(135deg, var(--gold), var(--gold2)); color: white; border: none; border-radius: 10px; padding: 13px; font-family: 'Figtree', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
-  .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(184,137,58,.3); }
-  .btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
-  .status { margin-top: 20px; padding: 14px 16px; border-radius: 10px; font-size: 13px; display: none; }
-  .status.loading { background: #f0ebe0; color: var(--ink3); display: block; }
-  .status.success { background: #f0faf4; color: #2a8a60; display: block; }
-  .status.error   { background: #fdf0f0; color: #c84040; display: block; }
-  .step { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
-  .step-dot.done { background: #2a8a60; }
-  .step-dot.active { animation: pulse 1s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
-</style>
-</head>
-<body>
-<div class="card">
-  <div class="logo">Lead<em>Flow</em> · Mandat</div>
-  <h1>Dossier de prise de mandat</h1>
-  <p class="sub">Entrez l'adresse du bien — le dossier PDF est prêt en 2 minutes.</p>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadFlow — Dossier Mandat</title>
 
-  <div class="field">
-    <label>Adresse du bien</label>
-    <input type="text" id="adresse" placeholder="12 rue de la République, Lyon 69001" value="108 rue Jean Vallier 69007 Lyon">
-  </div>
-  <div class="row">
-    <div class="field">
-      <label>Surface (m²)</label>
-      <input type="number" id="surface" placeholder="75" value="45">
-    </div>
-    <div class="field">
-      <label>Type de bien</label>
-      <input type="text" id="type" placeholder="Appartement" value="Appartement">
-    </div>
-  </div>
-  <div class="field">
-    <label>Nom de votre agence</label>
-    <input type="text" id="agence" placeholder="Orpi Lyon 6e" value="Orpi Lyon 7e">
-  </div>
+    <!--
+      ══════════════════════════════════════════════════════════════
+      GÉNÉRATEUR DE DOSSIER DE PRISE DE MANDAT — LeadFlow
+      ══════════════════════════════════════════════════════════════
+      Rôle : permettre à l'agent de générer un dossier PDF professionnel
+            en 2 minutes avant un rendez-vous mandat.
 
-  <button class="btn" onclick="generer()">Générer le dossier PDF</button>
+      Flux en 3 étapes côté serveur (server.js) :
+        1. POST /api/analyse  → géocode l'adresse + récupère les DVF en base
+        2. POST /api/synthese → Claude rédige l'analyse avec les données DVF
+        3. POST /api/pdf      → construit le HTML du rapport + retourne en blob
 
-  <div class="status" id="status">
-    <div class="step" id="step1"><div class="step-dot" id="d1"></div>Géolocalisation de l'adresse</div>
-    <div class="step" id="step2"><div class="step-dot" id="d2"></div>Récupération des transactions DVF</div>
-    <div class="step" id="step3"><div class="step-dot" id="d3"></div>Rédaction de l'analyse par IA</div>
-    <div class="step" id="step4"><div class="step-dot" id="d4"></div>Génération du PDF</div>
-  </div>
-</div>
+      Plus on fournit de détails dans le formulaire,
+      plus l'analyse IA sera précise et personnalisée.
+      ══════════════════════════════════════════════════════════════
+    -->
 
-<script>
-async function generer() {
-  const adresse = document.getElementById('adresse').value.trim();
-  const surface = document.getElementById('surface').value;
-  const type    = document.getElementById('type').value || 'Appartement';
-  const agence  = document.getElementById('agence').value;
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
 
-  if (!adresse) { alert('Merci d\'entrer une adresse.'); return; }
+    <style>
+      /* ── Reset & variables ── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      :root {
+        --cream:  #f7f4ee;
+        --cream2: #f0ebe0;
+        --cream3: #e8e0d0;
+        --white:  #ffffff;
+        --ink:    #1c1a16;
+        --ink3:   #4a4640;
+        --muted:  #8a8478;
+        --pale:   #b8b0a0;
+        --gold:   #b8893a;
+        --gold2:  #d4a853;
+        --green:  #2a8a60;
+        --red:    #c84040;
+        --border: #e0d8c8;
+      }
 
-  const btn    = document.querySelector('.btn');
-  const status = document.getElementById('status');
-  btn.disabled = true;
-  status.className = 'status loading';
+      body {
+        font-family: 'Figtree', sans-serif;
+        background: var(--cream);
+        color: var(--ink);
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 40px 20px;
+      }
 
-  function setStep(n) {
-    for (let i = 1; i <= 4; i++) {
-      const dot = document.getElementById('d' + i);
-      dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : '');
-    }
-  }
+      /* ── Carte principale ── */
+      .card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 40px;
+        width: 100%;
+        max-width: 640px;
+        box-shadow: 0 4px 32px rgba(28,26,22,.06);
+      }
 
-  try {
-    setStep(1);
-    const analyseRes = await fetch('/api/analyse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ adresse })
-    });
-    const analyse = await analyseRes.json();
-    if (!analyseRes.ok) throw new Error(analyse.error);
+      /* ── Header ── */
+      .logo {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 20px; color: var(--muted);
+        margin-bottom: 6px;
+      }
+      .logo em { font-style: italic; color: var(--gold); }
+      h1 { font-size: 22px; font-weight: 400; margin-bottom: 5px; }
+      .sub { font-size: 13px; color: var(--muted); margin-bottom: 32px; line-height: 1.5; }
 
-    setStep(2);
-    await new Promise(r => setTimeout(r, 500));
+      /* ── Séparateur de section ── */
+      .section-sep {
+        font-size: 9px; font-weight: 700; letter-spacing: 2.5px;
+        text-transform: uppercase; color: var(--gold);
+        margin: 28px 0 16px;
+        display: flex; align-items: center; gap: 10px;
+      }
+      .section-sep::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-    setStep(3);
-    const syntheseRes = await fetch('/api/synthese', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        adresse: analyse.adresse,
-        stats: analyse.stats,
-        transactions: analyse.transactions,
-        bienSurface: surface,
-        bienType: type
-      })
-    });
-    const syntheseData = await syntheseRes.json();
-    if (!syntheseRes.ok) throw new Error(syntheseData.error);
+      /* ── Champs du formulaire ── */
+      .field { margin-bottom: 14px; }
+      label {
+        font-size: 11px; font-weight: 500;
+        letter-spacing: 1.2px; text-transform: uppercase;
+        color: var(--muted); display: block; margin-bottom: 6px;
+      }
+      .label-hint {
+        font-size: 10px; font-weight: 400;
+        text-transform: none; letter-spacing: 0;
+        color: var(--pale); margin-left: 6px;
+      }
 
-    setStep(4);
-    const pdfRes = await fetch('/api/pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        adresse: analyse.adresse,
-        stats: analyse.stats,
-        transactions: analyse.transactions,
-        synthese: syntheseData.synthese,
-        agence: { nom: agence }
-      })
-    });
+      input, select, textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-family: 'Figtree', sans-serif;
+        font-size: 13.5px; color: var(--ink);
+        background: var(--cream);
+        outline: none; transition: border-color .2s, background .2s;
+      }
+      input:focus, select:focus, textarea:focus {
+        border-color: var(--gold);
+        background: white;
+      }
+      textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+      select { cursor: pointer; }
 
-    if (!pdfRes.ok) throw new Error('Erreur génération PDF');
+      /* Grilles de champs */
+      .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
-    const blob = await pdfRes.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = 'dossier-mandat.pdf';
-    a.click();
+      /* ── Bouton ── */
+      .btn {
+        width: 100%; margin-top: 12px;
+        background: linear-gradient(135deg, var(--gold), var(--gold2));
+        color: white; border: none; border-radius: 10px;
+        padding: 14px; font-family: 'Figtree', sans-serif;
+        font-size: 14px; font-weight: 600;
+        cursor: pointer; transition: all .2s;
+      }
+      .btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(184,137,58,.3); }
+      .btn:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    setStep(5);
-    status.className = 'status success';
-    status.innerHTML = '✅ Dossier téléchargé avec succès.';
+      /* ── Zone de statut ── */
+      .status {
+        margin-top: 20px; padding: 16px 18px;
+        border-radius: 10px; font-size: 13px; display: none;
+      }
+      .status.loading { background: var(--cream2); color: var(--ink3); display: block; }
+      .status.success { background: #f0faf4; color: #2a8a60; border: 1px solid rgba(42,138,96,.15); display: block; }
+      .status.error   { background: #fdf0f0; color: var(--red); border: 1px solid rgba(200,64,64,.15); display: block; }
 
-  } catch(err) {
-    status.className = 'status error';
-    status.innerHTML = '❌ ' + err.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-</script>
-</body>
+      /* Étapes d'avancement */
+      .step { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 12.5px; }
+      .step:last-child { margin-bottom: 0; }
+      .step-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .3s; }
+      .step-dot.done   { background: var(--green); }
+      .step-dot.active { background: var(--gold); animation: pulse 1s ease-in-out infinite; }
+      @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.8); } }
+    </style>
+  </head>
+
+  <body>
+    <div class="card">
+
+      <!-- ── HEADER ─────────────────────────────────────────────── -->
+      <div class="logo">Lead<em>Flow</em> · Mandat</div>
+      <h1>Dossier de prise de mandat</h1>
+      <p class="sub">
+        Renseignez les informations du bien — plus vous donnez de détails,
+        plus l'analyse IA sera précise et personnalisée.<br>
+        Le rapport PDF est prêt en 2 minutes.
+      </p>
+
+      <!-- ════════════════════════════════════════════════════════
+          SECTION 1 — LE BIEN
+          Champs essentiels pour identifier le bien et calculer
+          sa valeur par rapport aux transactions DVF du secteur
+          ════════════════════════════════════════════════════════ -->
+      <div class="section-sep">Le bien</div>
+
+      <!-- Adresse — champ le plus important : sert au géocodage
+          et à la récupération des transactions DVF dans un rayon de 300m -->
+      <div class="field">
+        <label>Adresse complète <span class="label-hint">— rue, numéro, code postal, ville</span></label>
+        <input type="text" id="adresse" placeholder="12 rue de la République, Lyon 69001">
+      </div>
+
+      <div class="row-3">
+        <!-- Type de bien — influence le filtre DVF (Appartement ou Maison) -->
+        <div class="field">
+          <label>Type de bien</label>
+          <select id="type">
+            <option value="Appartement">Appartement</option>
+            <option value="Maison">Maison</option>
+            <option value="Studio">Studio</option>
+            <option value="Loft">Loft</option>
+            <option value="Duplex">Duplex</option>
+            <option value="Commerce">Commerce</option>
+          </select>
+        </div>
+        <!-- Surface — permet de calculer le prix au m² et de comparer au marché -->
+        <div class="field">
+          <label>Surface <span class="label-hint">m²</span></label>
+          <input type="number" id="surface" placeholder="75" min="5" max="2000">
+        </div>
+        <!-- Nombre de pièces — enrichit le profil du bien pour l'IA -->
+        <div class="field">
+          <label>Pièces</label>
+          <input type="number" id="pieces" placeholder="3" min="1" max="20">
+        </div>
+      </div>
+
+      <div class="row-3">
+        <!-- Étage — argument de vente ou facteur de décote -->
+        <div class="field">
+          <label>Étage</label>
+          <input type="text" id="etage" placeholder="3ème / RDC">
+        </div>
+        <!-- DPE — facteur de plus en plus déterminant sur les prix depuis 2022 -->
+        <div class="field">
+          <label>DPE</label>
+          <select id="dpe">
+            <option value="">Non renseigné</option>
+            <option value="A">A — Excellent</option>
+            <option value="B">B — Très bon</option>
+            <option value="C">C — Bon</option>
+            <option value="D">D — Moyen</option>
+            <option value="E">E — Médiocre</option>
+            <option value="F">F — Mauvais</option>
+            <option value="G">G — Passoire</option>
+          </select>
+        </div>
+        <!-- État général — influe sur le positionnement prix -->
+        <div class="field">
+          <label>État général</label>
+          <select id="etat">
+            <option value="">Non renseigné</option>
+            <option value="Neuf / Très bon état">Neuf / Très bon état</option>
+            <option value="Bon état général">Bon état général</option>
+            <option value="À rafraîchir">À rafraîchir</option>
+            <option value="Travaux importants">Travaux importants</option>
+            <option value="Rénové récemment">Rénové récemment</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Points forts — éléments différenciants à mettre en avant dans le rapport -->
+      <div class="field">
+        <label>Points forts du bien <span class="label-hint">— terrasse, parking, vue, calme…</span></label>
+        <textarea id="points_forts" placeholder="Ex : terrasse 15m², parking privatif, vue dégagée sur parc, immeuble Haussmannien, cave"></textarea>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════
+          SECTION 2 — CONTEXTE DE VENTE
+          Ces informations permettent à Claude de personnaliser
+          son analyse et ses recommandations stratégiques
+          ════════════════════════════════════════════════════════ -->
+      <div class="section-sep">Contexte de vente</div>
+
+      <div class="row-2">
+        <!-- Prix demandé — permet à l'IA de comparer avec le marché DVF
+            et de conseiller sur le positionnement (sous-évalué, surévalué…) -->
+        <div class="field">
+          <label>Prix demandé <span class="label-hint">€ (si connu)</span></label>
+          <input type="number" id="prix_demande" placeholder="320000" min="0">
+        </div>
+        <!-- Motif de vente — influence le degré d'urgence et le ton du rapport -->
+        <div class="field">
+          <label>Motif de vente <span class="label-hint">si connu</span></label>
+          <select id="motif_vente">
+            <option value="">Non communiqué</option>
+            <option value="Déménagement / Mutation">Déménagement / Mutation</option>
+            <option value="Achat d'un autre bien">Achat d'un autre bien</option>
+            <option value="Succession">Succession</option>
+            <option value="Divorce / Séparation">Divorce / Séparation</option>
+            <option value="Retraite">Retraite</option>
+            <option value="Difficultés financières">Difficultés financières</option>
+            <option value="Investissement — revente">Investissement — revente</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Nom du propriétaire — permet à Claude de personnaliser la conclusion -->
+      <div class="field">
+        <label>Nom du propriétaire <span class="label-hint">— pour personnaliser le rapport</span></label>
+        <input type="text" id="proprietaire" placeholder="M. et Mme Dupont">
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════
+          SECTION 3 — VOTRE AGENCE
+          ════════════════════════════════════════════════════════ -->
+      <div class="section-sep">Votre agence</div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Nom de l'agence</label>
+          <input type="text" id="agence" placeholder="Orpi Lyon 6e">
+        </div>
+        <div class="field">
+          <label>Nom de l'agent</label>
+          <input type="text" id="agent" placeholder="Jean Martin">
+        </div>
+      </div>
+
+      <!-- ── BOUTON GÉNÉRATION ────────────────────────────────── -->
+      <button class="btn" id="btn-generer" onclick="generer()">
+        ✨ Générer le dossier PDF
+      </button>
+
+      <!-- ── ZONE DE STATUT — affichée pendant la génération ── -->
+      <div class="status" id="status">
+        <div class="step" id="step1">
+          <div class="step-dot" id="d1"></div>
+          Géolocalisation de l'adresse
+        </div>
+        <div class="step" id="step2">
+          <div class="step-dot" id="d2"></div>
+          Récupération des transactions DVF dans le secteur
+        </div>
+        <div class="step" id="step3">
+          <div class="step-dot" id="d3"></div>
+          Rédaction de l'analyse par IA (Claude)
+        </div>
+        <div class="step" id="step4">
+          <div class="step-dot" id="d4"></div>
+          Génération du rapport PDF
+        </div>
+      </div>
+
+    </div><!-- /card -->
+
+    <script>
+      // ══════════════════════════════════════════════════════════════
+      // FONCTION PRINCIPALE — generer()
+      // Appelée au clic sur le bouton "Générer le dossier PDF"
+      // Orchestre les 3 appels API dans l'ordre :
+      //   1. /api/analyse  → coordonnées GPS + transactions DVF
+      //   2. /api/synthese → analyse rédigée par Claude
+      //   3. /api/pdf      → rapport HTML final → téléchargement
+      // ══════════════════════════════════════════════════════════════
+      async function generer() {
+
+        // ── Lecture des valeurs du formulaire ─────────────────────
+        const adresse       = document.getElementById('adresse').value.trim();
+        const surface       = document.getElementById('surface').value;
+        const type          = document.getElementById('type').value || 'Appartement';
+        const pieces        = document.getElementById('pieces').value;
+        const etage         = document.getElementById('etage').value;
+        const dpe           = document.getElementById('dpe').value;
+        const etat          = document.getElementById('etat').value;
+        const points_forts  = document.getElementById('points_forts').value;
+        const prix_demande  = document.getElementById('prix_demande').value;
+        const motif_vente   = document.getElementById('motif_vente').value;
+        const proprietaire  = document.getElementById('proprietaire').value;
+        const agence        = document.getElementById('agence').value;
+        const agent         = document.getElementById('agent').value;
+
+        // Validation minimale — l'adresse est le seul champ obligatoire
+        if (!adresse) {
+          alert('Merci d\'entrer une adresse — c\'est le seul champ obligatoire.');
+          return;
+        }
+
+        // ── Initialisation de l'UI ────────────────────────────────
+        const btn    = document.getElementById('btn-generer');
+        const status = document.getElementById('status');
+        btn.disabled = true;
+        btn.textContent = '⏳ Génération en cours…';
+        status.className = 'status loading';
+
+        // Fonction utilitaire pour avancer les étapes visuellement
+        // n = numéro de l'étape en cours (1 à 4)
+        // les étapes précédentes passent en "done" (vert)
+        function setStep(n) {
+          for (let i = 1; i <= 4; i++) {
+            const dot = document.getElementById('d' + i);
+            dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : '');
+          }
+        }
+
+        try {
+          // ── ÉTAPE 1 — Géocodage + DVF ─────────────────────────
+          // Envoie l'adresse au serveur qui :
+          //   → appelle api-adresse.data.gouv.fr pour les coordonnées GPS
+          //   → interroge la table DVF PostgreSQL dans un rayon de 300m
+          //   → retourne { adresse (normalisée), lat, lon, stats, transactions }
+          setStep(1);
+          const analyseRes = await fetch('/api/analyse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adresse })
+          });
+          const analyse = await analyseRes.json();
+          if (!analyseRes.ok) throw new Error(analyse.error || 'Erreur géocodage');
+
+          // ── ÉTAPE 2 — (visuel seulement, données déjà reçues) ──
+          setStep(2);
+          await new Promise(r => setTimeout(r, 400)); // pause visuelle
+
+          // ── ÉTAPE 3 — Synthèse IA ────────────────────────────
+          // Envoie les données DVF + tous les détails du bien à Claude
+          // Plus il y a de champs renseignés, plus l'analyse sera précise
+          setStep(3);
+          const syntheseRes = await fetch('/api/synthese', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              adresse:         analyse.adresse,
+              stats:           analyse.stats,
+              transactions:    analyse.transactions,
+              // Infos du bien
+              bienSurface:     surface,
+              bienType:        type,
+              bienPieces:      pieces,
+              bienEtage:       etage,
+              bienDpe:         dpe,
+              bienEtat:        etat,
+              bienPointsForts: points_forts,
+              bienPrixDemande: prix_demande,
+              // Contexte de vente
+              proprietaireNom: proprietaire,
+              motifVente:      motif_vente,
+            })
+          });
+          const syntheseData = await syntheseRes.json();
+          if (!syntheseRes.ok) throw new Error(syntheseData.error || 'Erreur analyse IA');
+
+          // ── ÉTAPE 4 — Génération du PDF ───────────────────────
+          // Le serveur construit le HTML du rapport complet et le retourne
+          // sous forme de blob → déclenchement du téléchargement
+          setStep(4);
+          const pdfRes = await fetch('/api/pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              adresse:      analyse.adresse,
+              stats:        analyse.stats,
+              transactions: analyse.transactions,
+              synthese:     syntheseData.synthese,
+              agence:       { nom: agence, agent: agent },
+              // Objet bien complet pour l'afficher dans le rapport
+              bien: {
+                type, surface, pieces, etage, dpe, etat,
+                points_forts, prix_demande, proprietaire
+              }
+            })
+          });
+
+          if (!pdfRes.ok) {
+            const errData = await pdfRes.json();
+            throw new Error(errData.error || 'Erreur génération rapport');
+          }
+
+          // ── Téléchargement du fichier ─────────────────────────
+          // Le serveur retourne un HTML standalone — ouvrir dans Chrome
+          // puis Fichier → Imprimer → Enregistrer en PDF
+          const blob = await pdfRes.blob();
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement('a');
+          a.href     = url;
+          // Nom du fichier basé sur l'adresse
+          const nom  = (analyse.adresse || adresse).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().slice(0, 50);
+          a.download = `dossier-mandat-${nom}.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          // ── Succès ────────────────────────────────────────────
+          status.className = 'status success';
+          status.innerHTML = `
+            <div style="font-weight:600;margin-bottom:4px">✅ Rapport téléchargé avec succès</div>
+            <div style="font-size:11.5px;opacity:.8">
+              Ouvre le fichier dans Chrome → Fichier → Imprimer → Enregistrer en PDF
+            </div>`;
+
+        } catch(err) {
+          // ── Erreur ────────────────────────────────────────────
+          status.className = 'status error';
+          status.innerHTML = `<strong>❌ Erreur :</strong> ${err.message}`;
+          console.error('[MANDAT] Erreur :', err);
+
+        } finally {
+          // Réactivation du bouton dans tous les cas
+          btn.disabled = false;
+          btn.textContent = '✨ Générer le dossier PDF';
+        }
+      }
+    </script>
+  </body>
 </html>
