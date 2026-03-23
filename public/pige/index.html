@@ -268,20 +268,32 @@
       /* Grille 2 colonnes pour Potentiel + Stratégie */
       .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-      /* ── Carte potentiel ── */
-      .pot-card  { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 15px; }
-      .pot-lbl   { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 7px; }
-      .pot-score { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 600; line-height: 1; margin-bottom: 7px; }
+      /* ── Carte score IA ── */
+      .pot-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+      .pot-lbl  { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+      /* Chiffre du score en grand — centré */
+      .pot-score-num {
+        font-family: 'Cormorant Garamond', serif;
+        font-size: 52px; font-weight: 600; line-height: 1;
+      }
+      .pot-score-unit { font-size: 18px; color: var(--pale); font-family: 'Cormorant Garamond', serif; font-weight: 300; }
       .ps-f { color: var(--green); }
       .ps-m { color: var(--orange); }
       .ps-w { color: var(--red); }
       /* Barre de progression — largeur définie inline via style="width:${score}%" */
-      .pot-bar-wrap { height: 5px; background: var(--cream3); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
-      .pot-bar { height: 100%; border-radius: 3px; }
+      .pot-bar-wrap { height: 6px; background: var(--cream3); border-radius: 3px; overflow: hidden; width: 100%; }
+      .pot-bar { height: 100%; border-radius: 3px; transition: width .6s ease; }
       .pb-f { background: linear-gradient(90deg, var(--green), #40aa80); }
       .pb-m { background: linear-gradient(90deg, var(--orange), #e09040); }
       .pb-w { background: linear-gradient(90deg, var(--red), #e06060); }
-      .pot-desc { font-size: 11px; color: var(--ink3); line-height: 1.55; font-weight: 300; }
+      /* Label potentiel sous la barre */
+      .pot-label-badge {
+        font-size: 10px; font-weight: 600; padding: 3px 10px;
+        border-radius: 10px;
+      }
+      .plb-f { background: rgba(42,138,96,.08); color: var(--green); border: 1px solid rgba(42,138,96,.2); }
+      .plb-m { background: rgba(200,112,32,.06); color: var(--orange); border: 1px solid rgba(200,112,32,.2); }
+      .plb-w { background: rgba(200,64,64,.06); color: var(--red); border: 1px solid rgba(200,64,64,.2); }
 
       /* ── Carte stratégie d'approche (fond sombre) ── */
       .approche-card { background: var(--ink); border-radius: 10px; padding: 15px; position: relative; overflow: hidden; }
@@ -578,9 +590,10 @@
           // score_desc peut venir de 'score_raison' ou 'analyse'
           score_desc: raw.score_desc || raw.score_raison || raw.analyse || '',
           // Points forts : tableau ou fallback depuis les champs texte n8n
+          // Points forts = accroche uniquement
+          // score_raison va dans la recommandation IA, pas ici
           points: raw.points || [
-            raw.accroche     && { ico: '⭐', cls: 'pic-o', label: 'Point fort',  desc: raw.accroche },
-            raw.score_raison && { ico: '🔍', cls: 'pic-g', label: 'Analyse IA', desc: raw.score_raison },
+            raw.accroche && { ico: '⭐', cls: 'pic-o', label: 'Point fort', desc: raw.accroche },
           ].filter(Boolean),
           // 'sript' est une typo connue de n8n — on gère les deux
           approche:   raw.approche   || raw.script || raw.sript || '',
@@ -653,25 +666,32 @@
             </div>
           </div>
 
-          <!-- Score IA + Stratégie côte à côte -->
+          <!-- Score IA + Recommandation côte à côte -->
           <div class="two-cols">
             <div>
-              <div class="section-title">Potentiel mandat</div>
+              <div class="section-title">Score IA</div>
               <div class="pot-card">
-                <div class="pot-lbl">Score IA</div>
-                <div class="pot-score ${psCls[b.potentiel] || 'ps-m'}">${ptScore[b.potentiel] || 'Moyen'}</div>
-                <!-- Largeur de la barre = score en % -->
+                <div class="pot-lbl">Potentiel mandat</div>
+                <!-- Score affiché en grand — centré -->
+                <div class="pot-score-num ${psCls[b.potentiel] || 'ps-m'}">
+                  ${b.score}<span class="pot-score-unit">/100</span>
+                </div>
+                <!-- Barre de progression -->
                 <div class="pot-bar-wrap">
                   <div class="pot-bar ${pbCls[b.potentiel] || 'pb-m'}" style="width:${b.score}%"></div>
                 </div>
-                <div class="pot-desc">${b.score_desc}</div>
+                <!-- Badge potentiel -->
+                <div class="pot-label-badge plb-${b.potentiel || 'm'}">
+                  ${ptLabel[b.potentiel] || '🔶 Potentiel moyen'}
+                </div>
               </div>
             </div>
             <div>
-              <div class="section-title">Stratégie d'approche</div>
+              <div class="section-title">Recommandation IA</div>
               <div class="approche-card">
-                <div class="approche-lbl">Recommandation IA</div>
-                <div class="approche-txt">${b.approche}</div>
+                <div class="approche-lbl">Analyse du bien</div>
+                <!-- Affiche l'analyse IA — score_desc contient l'analyse Claude -->
+                <div class="approche-txt">${b.score_desc || b.approche}</div>
               </div>
             </div>
           </div>
@@ -826,10 +846,15 @@
   .pt-ico { font-size: 15px; }
   .pt-title { font-size: 10.5px; font-weight: 600; }
   .pt-body { font-size: 9.5px; color: #4a4640; line-height: 1.55; }
+  .sec-score { margin-bottom: 22px; }
+  .score-row { display: flex; align-items: center; gap: 16px; }
+  .score-num { font-family: Georgia, serif; font-size: 42px; font-weight: 600; line-height: 1; }
+  .score-num .unit { font-size: 16px; color: #8a8478; font-weight: 300; }
+  .score-right { flex: 1; }
+  .score-badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 9px; font-weight: 700; border: 1px solid; margin-bottom: 6px; }
   .sec-approche { margin-bottom: 22px; }
   .approche { background: #1c1a16; border-radius: 10px; padding: 16px 18px; }
   .app-lbl  { font-size: 8px; color: #b8893a; text-transform: uppercase; letter-spacing: 2.5px; font-weight: 700; margin-bottom: 8px; }
-  .app-score { display: inline-block; margin-left: 8px; background: rgba(184,137,58,.15); color: #d4a853; padding: 1px 8px; border-radius: 10px; font-size: 9px; font-weight: 600; border: 1px solid rgba(184,137,58,.25); }
   .app-txt  { font-size: 11px; color: rgba(247,244,238,.88); line-height: 1.75; }
   .sec-mail { margin-bottom: 22px; }
   .mail-card { border: 1px solid #e0d8c8; border-radius: 10px; overflow: hidden; }
@@ -867,11 +892,25 @@
       <div class="sec">Points forts du bien</div>
       <div class="pts-grid">${ptsHtml}</div>
     </div>
+    <div class="sec-score">
+      <div class="sec">Score IA</div>
+      <div class="score-row">
+        <div class="score-num" style="color:${pvCol[b.potentiel] || '#c87020'}">
+          ${b.score}<span class="unit">/100</span>
+        </div>
+        <div class="score-right">
+          <div class="score-badge" style="color:${pvCol[b.potentiel]};border-color:${pvCol[b.potentiel]};background:${pvBg[b.potentiel]}">${pvLbl[b.potentiel] || pvLbl.moyen}</div>
+          <div class="pot-bar-wrap" style="height:5px;background:#e8e0d0;border-radius:3px;overflow:hidden;">
+            <div style="height:100%;border-radius:3px;width:${b.score}%;background:${pvCol[b.potentiel]};"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="sec-approche">
-      <div class="sec">Stratégie d'approche</div>
+      <div class="sec">Recommandation IA</div>
       <div class="approche">
-        <div class="app-lbl">Recommandation IA <span class="app-score">Score ${b.score}/100</span></div>
-        <div class="app-txt">${b.approche}</div>
+        <div class="app-lbl">Analyse du bien</div>
+        <div class="app-txt">${b.score_desc || b.approche}</div>
       </div>
     </div>
     <div class="sec-mail">
