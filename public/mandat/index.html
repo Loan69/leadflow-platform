@@ -150,332 +150,351 @@
   </head>
 
   <body>
-    <div class="card">
+  <div class="card">
 
-      <!-- ── HEADER ─────────────────────────────────────────────── -->
-      <div class="logo">Lead<em>Flow</em> · Mandat</div>
-      <h1>Dossier de prise de mandat</h1>
-      <p class="sub">
-        Renseignez les informations du bien — plus vous donnez de détails,
-        plus l'analyse IA sera précise et personnalisée.<br>
-        Le rapport PDF est prêt en 2 minutes.
-      </p>
+    <!-- ── HEADER ─────────────────────────────────────────────── -->
+    <div class="logo">Lead<em>Flow</em> · Mandat</div>
+    <h1>Dossier de prise de mandat</h1>
+    <p class="sub">
+      Renseignez les informations du bien — plus vous donnez de détails,
+      plus l'analyse IA sera précise et personnalisée.<br>
+      Le rapport PDF est prêt en 2 minutes.
+    </p>
 
-      <!-- ════════════════════════════════════════════════════════
-          SECTION 1 — LE BIEN
-          Champs essentiels pour identifier le bien et calculer
-          sa valeur par rapport aux transactions DVF du secteur
-          ════════════════════════════════════════════════════════ -->
-      <div class="section-sep">Le bien</div>
+    <!-- ════════════════════════════════════════════════════════
+        SECTION 1 — LE BIEN
+        Champs essentiels pour identifier le bien et calculer
+        sa valeur par rapport aux transactions DVF du secteur
+        ════════════════════════════════════════════════════════ -->
+    <div class="section-sep">Le bien</div>
 
-      <!-- Adresse — champ le plus important : sert au géocodage
-          et à la récupération des transactions DVF dans un rayon de 300m -->
+    <!-- Adresse — sert au géocodage GPS et à la requête DVF en base -->
+    <div class="field">
+      <label>Adresse <span class="label-hint">— numéro et rue</span></label>
+      <input type="text" id="adresse" placeholder="12 rue de la République">
+    </div>
+    <div class="row-2">
+      <!-- Code postal — évite les ambiguïtés (ex: rue Pasteur existe dans 200 villes) -->
       <div class="field">
-        <label>Adresse complète <span class="label-hint">— rue, numéro, code postal, ville</span></label>
-        <input type="text" id="adresse" placeholder="12 rue de la République, Lyon 69001">
+        <label>Code postal</label>
+        <input type="text" id="code_postal" placeholder="69001" maxlength="5">
       </div>
-
-      <div class="row-3">
-        <!-- Type de bien — influence le filtre DVF (Appartement ou Maison) -->
-        <div class="field">
-          <label>Type de bien</label>
-          <select id="type">
-            <option value="Appartement">Appartement</option>
-            <option value="Maison">Maison</option>
-            <option value="Studio">Studio</option>
-            <option value="Loft">Loft</option>
-            <option value="Duplex">Duplex</option>
-            <option value="Commerce">Commerce</option>
-          </select>
-        </div>
-        <!-- Surface — permet de calculer le prix au m² et de comparer au marché -->
-        <div class="field">
-          <label>Surface <span class="label-hint">m²</span></label>
-          <input type="number" id="surface" placeholder="75" min="5" max="2000">
-        </div>
-        <!-- Nombre de pièces — enrichit le profil du bien pour l'IA -->
-        <div class="field">
-          <label>Pièces</label>
-          <input type="number" id="pieces" placeholder="3" min="1" max="20">
-        </div>
-      </div>
-
-      <div class="row-3">
-        <!-- Étage — argument de vente ou facteur de décote -->
-        <div class="field">
-          <label>Étage</label>
-          <input type="text" id="etage" placeholder="3ème / RDC">
-        </div>
-        <!-- DPE — facteur de plus en plus déterminant sur les prix depuis 2022 -->
-        <div class="field">
-          <label>DPE</label>
-          <select id="dpe">
-            <option value="">Non renseigné</option>
-            <option value="A">A — Excellent</option>
-            <option value="B">B — Très bon</option>
-            <option value="C">C — Bon</option>
-            <option value="D">D — Moyen</option>
-            <option value="E">E — Médiocre</option>
-            <option value="F">F — Mauvais</option>
-            <option value="G">G — Passoire</option>
-          </select>
-        </div>
-        <!-- État général — influe sur le positionnement prix -->
-        <div class="field">
-          <label>État général</label>
-          <select id="etat">
-            <option value="">Non renseigné</option>
-            <option value="Neuf / Très bon état">Neuf / Très bon état</option>
-            <option value="Bon état général">Bon état général</option>
-            <option value="À rafraîchir">À rafraîchir</option>
-            <option value="Travaux importants">Travaux importants</option>
-            <option value="Rénové récemment">Rénové récemment</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Points forts — éléments différenciants à mettre en avant dans le rapport -->
+      <!-- Ville — complète le géocodage pour une précision maximale -->
       <div class="field">
-        <label>Points forts du bien <span class="label-hint">— terrasse, parking, vue, calme…</span></label>
-        <textarea id="points_forts" placeholder="Ex : terrasse 15m², parking privatif, vue dégagée sur parc, immeuble Haussmannien, cave"></textarea>
+        <label>Ville</label>
+        <input type="text" id="ville" placeholder="Lyon">
       </div>
+    </div>
 
-      <!-- ════════════════════════════════════════════════════════
-          SECTION 2 — CONTEXTE DE VENTE
-          Ces informations permettent à Claude de personnaliser
-          son analyse et ses recommandations stratégiques
-          ════════════════════════════════════════════════════════ -->
-      <div class="section-sep">Contexte de vente</div>
-
-      <div class="row-2">
-        <!-- Prix demandé — permet à l'IA de comparer avec le marché DVF
-            et de conseiller sur le positionnement (sous-évalué, surévalué…) -->
-        <div class="field">
-          <label>Prix demandé <span class="label-hint">€ (si connu)</span></label>
-          <input type="number" id="prix_demande" placeholder="320000" min="0">
-        </div>
-        <!-- Motif de vente — influence le degré d'urgence et le ton du rapport -->
-        <div class="field">
-          <label>Motif de vente <span class="label-hint">si connu</span></label>
-          <select id="motif_vente">
-            <option value="">Non communiqué</option>
-            <option value="Déménagement / Mutation">Déménagement / Mutation</option>
-            <option value="Achat d'un autre bien">Achat d'un autre bien</option>
-            <option value="Succession">Succession</option>
-            <option value="Divorce / Séparation">Divorce / Séparation</option>
-            <option value="Retraite">Retraite</option>
-            <option value="Difficultés financières">Difficultés financières</option>
-            <option value="Investissement — revente">Investissement — revente</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- Nom du propriétaire — permet à Claude de personnaliser la conclusion -->
+    <div class="row-3">
+      <!-- Type de bien — influence le filtre DVF (Appartement ou Maison) -->
       <div class="field">
-        <label>Nom du propriétaire <span class="label-hint">— pour personnaliser le rapport</span></label>
-        <input type="text" id="proprietaire" placeholder="M. et Mme Dupont">
+        <label>Type de bien</label>
+        <select id="type">
+          <option value="Appartement">Appartement</option>
+          <option value="Maison">Maison</option>
+          <option value="Studio">Studio</option>
+          <option value="Loft">Loft</option>
+          <option value="Duplex">Duplex</option>
+          <option value="Commerce">Commerce</option>
+        </select>
       </div>
-
-      <!-- ════════════════════════════════════════════════════════
-          SECTION 3 — VOTRE AGENCE
-          ════════════════════════════════════════════════════════ -->
-      <div class="section-sep">Votre agence</div>
-
-      <div class="row-2">
-        <div class="field">
-          <label>Nom de l'agence</label>
-          <input type="text" id="agence" placeholder="Orpi Lyon 6e">
-        </div>
-        <div class="field">
-          <label>Nom de l'agent</label>
-          <input type="text" id="agent" placeholder="Jean Martin">
-        </div>
+      <!-- Surface — permet de calculer le prix au m² et de comparer au marché -->
+      <div class="field">
+        <label>Surface <span class="label-hint">m²</span></label>
+        <input type="number" id="surface" placeholder="75" min="5" max="2000">
       </div>
-
-      <!-- ── BOUTON GÉNÉRATION ────────────────────────────────── -->
-      <button class="btn" id="btn-generer" onclick="generer()">
-        ✨ Générer le dossier PDF
-      </button>
-
-      <!-- ── ZONE DE STATUT — affichée pendant la génération ── -->
-      <div class="status" id="status">
-        <div class="step" id="step1">
-          <div class="step-dot" id="d1"></div>
-          Géolocalisation de l'adresse
-        </div>
-        <div class="step" id="step2">
-          <div class="step-dot" id="d2"></div>
-          Récupération des transactions DVF dans le secteur
-        </div>
-        <div class="step" id="step3">
-          <div class="step-dot" id="d3"></div>
-          Rédaction de l'analyse par IA (Claude)
-        </div>
-        <div class="step" id="step4">
-          <div class="step-dot" id="d4"></div>
-          Génération du rapport PDF
-        </div>
+      <!-- Nombre de pièces — enrichit le profil du bien pour l'IA -->
+      <div class="field">
+        <label>Pièces</label>
+        <input type="number" id="pieces" placeholder="3" min="1" max="20">
       </div>
+    </div>
 
-    </div><!-- /card -->
+    <div class="row-3">
+      <!-- Étage — argument de vente ou facteur de décote -->
+      <div class="field">
+        <label>Étage</label>
+        <input type="text" id="etage" placeholder="3ème / RDC">
+      </div>
+      <!-- DPE — facteur de plus en plus déterminant sur les prix depuis 2022 -->
+      <div class="field">
+        <label>DPE</label>
+        <select id="dpe">
+          <option value="">Non renseigné</option>
+          <option value="A">A — Excellent</option>
+          <option value="B">B — Très bon</option>
+          <option value="C">C — Bon</option>
+          <option value="D">D — Moyen</option>
+          <option value="E">E — Médiocre</option>
+          <option value="F">F — Mauvais</option>
+          <option value="G">G — Passoire</option>
+        </select>
+      </div>
+      <!-- État général — influe sur le positionnement prix -->
+      <div class="field">
+        <label>État général</label>
+        <select id="etat">
+          <option value="">Non renseigné</option>
+          <option value="Neuf / Très bon état">Neuf / Très bon état</option>
+          <option value="Bon état général">Bon état général</option>
+          <option value="À rafraîchir">À rafraîchir</option>
+          <option value="Travaux importants">Travaux importants</option>
+          <option value="Rénové récemment">Rénové récemment</option>
+        </select>
+      </div>
+    </div>
 
-    <script>
-      // ══════════════════════════════════════════════════════════════
-      // FONCTION PRINCIPALE — generer()
-      // Appelée au clic sur le bouton "Générer le dossier PDF"
-      // Orchestre les 3 appels API dans l'ordre :
-      //   1. /api/analyse  → coordonnées GPS + transactions DVF
-      //   2. /api/synthese → analyse rédigée par Claude
-      //   3. /api/pdf      → rapport HTML final → téléchargement
-      // ══════════════════════════════════════════════════════════════
-      async function generer() {
+    <!-- Points forts — éléments différenciants à mettre en avant dans le rapport -->
+    <div class="field">
+      <label>Points forts du bien <span class="label-hint">— terrasse, parking, vue, calme…</span></label>
+      <textarea id="points_forts" placeholder="Ex : terrasse 15m², parking privatif, vue dégagée sur parc, immeuble Haussmannien, cave"></textarea>
+    </div>
 
-        // ── Lecture des valeurs du formulaire ─────────────────────
-        const adresse       = document.getElementById('adresse').value.trim();
-        const surface       = document.getElementById('surface').value;
-        const type          = document.getElementById('type').value || 'Appartement';
-        const pieces        = document.getElementById('pieces').value;
-        const etage         = document.getElementById('etage').value;
-        const dpe           = document.getElementById('dpe').value;
-        const etat          = document.getElementById('etat').value;
-        const points_forts  = document.getElementById('points_forts').value;
-        const prix_demande  = document.getElementById('prix_demande').value;
-        const motif_vente   = document.getElementById('motif_vente').value;
-        const proprietaire  = document.getElementById('proprietaire').value;
-        const agence        = document.getElementById('agence').value;
-        const agent         = document.getElementById('agent').value;
+    <!-- ════════════════════════════════════════════════════════
+        SECTION 2 — CONTEXTE DE VENTE
+        Ces informations permettent à Claude de personnaliser
+        son analyse et ses recommandations stratégiques
+        ════════════════════════════════════════════════════════ -->
+    <div class="section-sep">Contexte de vente</div>
 
-        // Validation minimale — l'adresse est le seul champ obligatoire
-        if (!adresse) {
-          alert('Merci d\'entrer une adresse — c\'est le seul champ obligatoire.');
-          return;
-        }
+    <div class="row-2">
+      <!-- Prix demandé — permet à l'IA de comparer avec le marché DVF
+          et de conseiller sur le positionnement (sous-évalué, surévalué…) -->
+      <div class="field">
+        <label>Prix demandé <span class="label-hint">€ (si connu)</span></label>
+        <input type="number" id="prix_demande" placeholder="320000" min="0">
+      </div>
+      <!-- Motif de vente — influence le degré d'urgence et le ton du rapport -->
+      <div class="field">
+        <label>Motif de vente <span class="label-hint">si connu</span></label>
+        <select id="motif_vente">
+          <option value="">Non communiqué</option>
+          <option value="Déménagement / Mutation">Déménagement / Mutation</option>
+          <option value="Achat d'un autre bien">Achat d'un autre bien</option>
+          <option value="Succession">Succession</option>
+          <option value="Divorce / Séparation">Divorce / Séparation</option>
+          <option value="Retraite">Retraite</option>
+          <option value="Difficultés financières">Difficultés financières</option>
+          <option value="Investissement — revente">Investissement — revente</option>
+        </select>
+      </div>
+    </div>
 
-        // ── Initialisation de l'UI ────────────────────────────────
-        const btn    = document.getElementById('btn-generer');
-        const status = document.getElementById('status');
-        btn.disabled = true;
-        btn.textContent = '⏳ Génération en cours…';
-        status.className = 'status loading';
+    <!-- Nom du propriétaire — permet à Claude de personnaliser la conclusion -->
+    <div class="field">
+      <label>Nom du propriétaire <span class="label-hint">— pour personnaliser le rapport</span></label>
+      <input type="text" id="proprietaire" placeholder="M. et Mme Dupont">
+    </div>
 
-        // Fonction utilitaire pour avancer les étapes visuellement
-        // n = numéro de l'étape en cours (1 à 4)
-        // les étapes précédentes passent en "done" (vert)
-        function setStep(n) {
-          for (let i = 1; i <= 4; i++) {
-            const dot = document.getElementById('d' + i);
-            dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : '');
-          }
-        }
+    <!-- ════════════════════════════════════════════════════════
+        SECTION 3 — VOTRE AGENCE
+        ════════════════════════════════════════════════════════ -->
+    <div class="section-sep">Votre agence</div>
 
-        try {
-          // ── ÉTAPE 1 — Géocodage + DVF ─────────────────────────
-          // Envoie l'adresse au serveur qui :
-          //   → appelle api-adresse.data.gouv.fr pour les coordonnées GPS
-          //   → interroge la table DVF PostgreSQL dans un rayon de 300m
-          //   → retourne { adresse (normalisée), lat, lon, stats, transactions }
-          setStep(1);
-          const analyseRes = await fetch('/api/analyse', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adresse })
-          });
-          const analyse = await analyseRes.json();
-          if (!analyseRes.ok) throw new Error(analyse.error || 'Erreur géocodage');
+    <div class="row-2">
+      <div class="field">
+        <label>Nom de l'agence</label>
+        <input type="text" id="agence" placeholder="Orpi Lyon 6e">
+      </div>
+      <div class="field">
+        <label>Nom de l'agent</label>
+        <input type="text" id="agent" placeholder="Jean Martin">
+      </div>
+    </div>
 
-          // ── ÉTAPE 2 — (visuel seulement, données déjà reçues) ──
-          setStep(2);
-          await new Promise(r => setTimeout(r, 400)); // pause visuelle
+    <!-- ── BOUTON GÉNÉRATION ────────────────────────────────── -->
+    <button class="btn" id="btn-generer" onclick="generer()">
+      ✨ Générer le dossier PDF
+    </button>
 
-          // ── ÉTAPE 3 — Synthèse IA ────────────────────────────
-          // Envoie les données DVF + tous les détails du bien à Claude
-          // Plus il y a de champs renseignés, plus l'analyse sera précise
-          setStep(3);
-          const syntheseRes = await fetch('/api/synthese', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              adresse:         analyse.adresse,
-              stats:           analyse.stats,
-              transactions:    analyse.transactions,
-              // Infos du bien
-              bienSurface:     surface,
-              bienType:        type,
-              bienPieces:      pieces,
-              bienEtage:       etage,
-              bienDpe:         dpe,
-              bienEtat:        etat,
-              bienPointsForts: points_forts,
-              bienPrixDemande: prix_demande,
-              // Contexte de vente
-              proprietaireNom: proprietaire,
-              motifVente:      motif_vente,
-            })
-          });
-          const syntheseData = await syntheseRes.json();
-          if (!syntheseRes.ok) throw new Error(syntheseData.error || 'Erreur analyse IA');
+    <!-- ── ZONE DE STATUT — affichée pendant la génération ── -->
+    <div class="status" id="status">
+      <div class="step" id="step1">
+        <div class="step-dot" id="d1"></div>
+        Géolocalisation de l'adresse
+      </div>
+      <div class="step" id="step2">
+        <div class="step-dot" id="d2"></div>
+        Récupération des transactions DVF dans le secteur
+      </div>
+      <div class="step" id="step3">
+        <div class="step-dot" id="d3"></div>
+        Rédaction de l'analyse par IA (Claude)
+      </div>
+      <div class="step" id="step4">
+        <div class="step-dot" id="d4"></div>
+        Génération du rapport PDF
+      </div>
+    </div>
 
-          // ── ÉTAPE 4 — Génération du PDF ───────────────────────
-          // Le serveur construit le HTML du rapport complet et le retourne
-          // sous forme de blob → déclenchement du téléchargement
-          setStep(4);
-          const pdfRes = await fetch('/api/pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              adresse:      analyse.adresse,
-              stats:        analyse.stats,
-              transactions: analyse.transactions,
-              synthese:     syntheseData.synthese,
-              agence:       { nom: agence, agent: agent },
-              // Objet bien complet pour l'afficher dans le rapport
-              bien: {
-                type, surface, pieces, etage, dpe, etat,
-                points_forts, prix_demande, proprietaire
-              }
-            })
-          });
+  </div><!-- /card -->
 
-          if (!pdfRes.ok) {
-            const errData = await pdfRes.json();
-            throw new Error(errData.error || 'Erreur génération rapport');
-          }
+  <script>
+    // ══════════════════════════════════════════════════════════════
+    // FONCTION PRINCIPALE — generer()
+    // Appelée au clic sur le bouton "Générer le dossier PDF"
+    // Orchestre les 3 appels API dans l'ordre :
+    //   1. /api/analyse  → coordonnées GPS + transactions DVF
+    //   2. /api/synthese → analyse rédigée par Claude
+    //   3. /api/pdf      → rapport HTML final → téléchargement
+    // ══════════════════════════════════════════════════════════════
+    async function generer() {
 
-          // ── Téléchargement du fichier ─────────────────────────
-          // Le serveur retourne un HTML standalone — ouvrir dans Chrome
-          // puis Fichier → Imprimer → Enregistrer en PDF
-          const blob = await pdfRes.blob();
-          const url  = URL.createObjectURL(blob);
-          const a    = document.createElement('a');
-          a.href     = url;
-          // Nom du fichier basé sur l'adresse
-          const nom  = (analyse.adresse || adresse).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().slice(0, 50);
-          a.download = `dossier-mandat-${nom}.html`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+      // ── Lecture des valeurs du formulaire ─────────────────────
+      const adresse_rue   = document.getElementById('adresse').value.trim();
+      const code_postal   = document.getElementById('code_postal').value.trim();
+      const ville_input   = document.getElementById('ville').value.trim();
+      // Concatène rue + code postal + ville pour le géocodage
+      const adresse       = [adresse_rue, code_postal, ville_input].filter(Boolean).join(' ');
+      const surface       = document.getElementById('surface').value;
+      const type          = document.getElementById('type').value || 'Appartement';
+      const pieces        = document.getElementById('pieces').value;
+      const etage         = document.getElementById('etage').value;
+      const dpe           = document.getElementById('dpe').value;
+      const etat          = document.getElementById('etat').value;
+      const points_forts  = document.getElementById('points_forts').value;
+      const prix_demande  = document.getElementById('prix_demande').value;
+      const motif_vente   = document.getElementById('motif_vente').value;
+      const proprietaire  = document.getElementById('proprietaire').value;
+      const agence        = document.getElementById('agence').value;
+      const agent         = document.getElementById('agent').value;
 
-          // ── Succès ────────────────────────────────────────────
-          status.className = 'status success';
-          status.innerHTML = `
-            <div style="font-weight:600;margin-bottom:4px">✅ Rapport téléchargé avec succès</div>
-            <div style="font-size:11.5px;opacity:.8">
-              Ouvre le fichier dans Chrome → Fichier → Imprimer → Enregistrer en PDF
-            </div>`;
+      // Validation minimale — l'adresse est le seul champ obligatoire
+      if (!adresse_rue) {
+        alert('Merci d\'entrer une adresse (rue et numéro).');
+        return;
+      }
+      if (!ville_input && !code_postal) {
+        alert('Merci d\'entrer au moins la ville ou le code postal pour éviter les ambiguïtés.');
+        return;
+      }
 
-        } catch(err) {
-          // ── Erreur ────────────────────────────────────────────
-          status.className = 'status error';
-          status.innerHTML = `<strong>❌ Erreur :</strong> ${err.message}`;
-          console.error('[MANDAT] Erreur :', err);
+      // ── Initialisation de l'UI ────────────────────────────────
+      const btn    = document.getElementById('btn-generer');
+      const status = document.getElementById('status');
+      btn.disabled = true;
+      btn.textContent = '⏳ Génération en cours…';
+      status.className = 'status loading';
 
-        } finally {
-          // Réactivation du bouton dans tous les cas
-          btn.disabled = false;
-          btn.textContent = '✨ Générer le dossier PDF';
+      // Fonction utilitaire pour avancer les étapes visuellement
+      // n = numéro de l'étape en cours (1 à 4)
+      // les étapes précédentes passent en "done" (vert)
+      function setStep(n) {
+        for (let i = 1; i <= 4; i++) {
+          const dot = document.getElementById('d' + i);
+          dot.className = 'step-dot ' + (i < n ? 'done' : i === n ? 'active' : '');
         }
       }
-    </script>
+
+      try {
+        // ── ÉTAPE 1 — Géocodage + DVF ─────────────────────────
+        // Envoie l'adresse au serveur qui :
+        //   → appelle api-adresse.data.gouv.fr pour les coordonnées GPS
+        //   → interroge la table DVF PostgreSQL dans un rayon de 300m
+        //   → retourne { adresse (normalisée), lat, lon, stats, transactions }
+        setStep(1);
+        const analyseRes = await fetch('/api/analyse', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adresse })
+        });
+        const analyse = await analyseRes.json();
+        if (!analyseRes.ok) throw new Error(analyse.error || 'Erreur géocodage');
+
+        // ── ÉTAPE 2 — (visuel seulement, données déjà reçues) ──
+        setStep(2);
+        await new Promise(r => setTimeout(r, 400)); // pause visuelle
+
+        // ── ÉTAPE 3 — Synthèse IA ────────────────────────────
+        // Envoie les données DVF + tous les détails du bien à Claude
+        // Plus il y a de champs renseignés, plus l'analyse sera précise
+        setStep(3);
+        const syntheseRes = await fetch('/api/synthese', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adresse:         analyse.adresse,
+            stats:           analyse.stats,
+            transactions:    analyse.transactions,
+            // Infos du bien
+            bienSurface:     surface,
+            bienType:        type,
+            bienPieces:      pieces,
+            bienEtage:       etage,
+            bienDpe:         dpe,
+            bienEtat:        etat,
+            bienPointsForts: points_forts,
+            bienPrixDemande: prix_demande,
+            // Contexte de vente
+            proprietaireNom: proprietaire,
+            motifVente:      motif_vente,
+          })
+        });
+        const syntheseData = await syntheseRes.json();
+        if (!syntheseRes.ok) throw new Error(syntheseData.error || 'Erreur analyse IA');
+
+        // ── ÉTAPE 4 — Génération du PDF ───────────────────────
+        // Le serveur construit le HTML du rapport complet et le retourne
+        // sous forme de blob → déclenchement du téléchargement
+        setStep(4);
+        const pdfRes = await fetch('/api/pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            adresse:      analyse.adresse,
+            stats:        analyse.stats,
+            transactions: analyse.transactions,
+            synthese:     syntheseData.synthese,
+            agence:       { nom: agence, agent: agent },
+            // Objet bien complet pour l'afficher dans le rapport
+            bien: {
+              type, surface, pieces, etage, dpe, etat,
+              points_forts, prix_demande, proprietaire
+            }
+          })
+        });
+
+        if (!pdfRes.ok) {
+          const errData = await pdfRes.json();
+          throw new Error(errData.error || 'Erreur génération rapport');
+        }
+
+        // ── Téléchargement du fichier ─────────────────────────
+        // Le serveur retourne un HTML standalone — ouvrir dans Chrome
+        // puis Fichier → Imprimer → Enregistrer en PDF
+        const blob = await pdfRes.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        // Nom du fichier basé sur l'adresse
+        const nom  = (analyse.adresse || adresse).replace(/[^a-zA-Z0-9]/g, '-').toLowerCase().slice(0, 50);
+        a.download = `dossier-mandat-${nom}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // ── Succès ────────────────────────────────────────────
+        status.className = 'status success';
+        status.innerHTML = `
+          <div style="font-weight:600;margin-bottom:4px">✅ Rapport téléchargé avec succès</div>
+          <div style="font-size:11.5px;opacity:.8">
+            Ouvre le fichier dans Chrome → Fichier → Imprimer → Enregistrer en PDF
+          </div>`;
+
+      } catch(err) {
+        // ── Erreur ────────────────────────────────────────────
+        status.className = 'status error';
+        status.innerHTML = `<strong>❌ Erreur :</strong> ${err.message}`;
+        console.error('[MANDAT] Erreur :', err);
+
+      } finally {
+        // Réactivation du bouton dans tous les cas
+        btn.disabled = false;
+        btn.textContent = '✨ Générer le dossier PDF';
+      }
+    }
+  </script>
   </body>
 </html>

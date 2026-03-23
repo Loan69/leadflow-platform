@@ -258,7 +258,7 @@ app.post('/api/analyse', async (req, res) => {
     // Récupération des transactions DVF dans un rayon ~300m (0.003 degré ≈ 300m)
     const rayon = 0.003;
     const result = await pool.query(`
-      SELECT adresse, prix, surface, prix_m2, type_local, TO_CHAR(date_mutation, 'YYYY-MM') as date_mutation, nb_pieces
+      SELECT adresse, prix, surface, prix_m2, type_local, date_mutation, nb_pieces
       FROM dvf
       WHERE lat BETWEEN $1 AND $2
         AND lon BETWEEN $3 AND $4
@@ -385,7 +385,7 @@ app.post('/api/pdf', async (req, res) => {
 
     // Conversion Markdown → HTML pour la synthèse
     // On fait une conversion basique sans dépendance externe
-    const syntheseHtml = synthese
+    let syntheseHtml = synthese
       .replace(/^## (.+)$/gm, '<h2>$1</h2>')
       .replace(/^### (.+)$/gm, '<h3>$1</h3>')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -417,74 +417,365 @@ app.post('/api/pdf', async (req, res) => {
 
     const now = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
+    // ── Construction du HTML premium du rapport ─────────────────
+    // Template inspiré du design LeadFlow : cover sombre, sections aérées,
+    // statistiques en grande typographie, tableau DVF propre
+    const now_str = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Conversion Markdown → HTML pour la synthèse Claude
+    syntheseHtml = (synthese || '')
+      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+      .replace(/(<li>[\s\S]+?<\/li>)(\n<li>)/g, '$1$2')
+      .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/^(?!<[hul\/])(.+)$/gm, (m) => m.trim() ? `<p>${m}</p>` : '');
+
+    // Lignes du tableau DVF
+    const lignes = transactions.slice(0, 15).map(t => `
+      <tr>
+        <td>${String(t.date_mutation || '').slice(0,7) || '—'}</td>
+        <td>${t.type_local || '—'}</td>
+        <td>${t.surface || '—'} m²</td>
+        <td>${parseInt(t.prix || 0).toLocaleString('fr-FR')} €</td>
+        <td><strong>${Math.round(t.prix_m2 || 0).toLocaleString('fr-FR')} €/m²</strong></td>
+        <td style="color:#8a8478;font-size:10px">${t.adresse || '—'}</td>
+      </tr>`).join('');
+
+    // Caractéristiques du bien sous forme de liste
+    const bienItems = [
+      bien?.type         && `<div class="bien-item"><span class="bien-lbl">Type</span><span class="bien-val">${bien.type}</span></div>`,
+      bien?.surface      && `<div class="bien-item"><span class="bien-lbl">Surface</span><span class="bien-val">${bien.surface} m²</span></div>`,
+      bien?.pieces       && `<div class="bien-item"><span class="bien-lbl">Pièces</span><span class="bien-val">${bien.pieces}</span></div>`,
+      bien?.etage        && `<div class="bien-item"><span class="bien-lbl">Étage</span><span class="bien-val">${bien.etage}</span></div>`,
+      bien?.dpe          && `<div class="bien-item"><span class="bien-lbl">DPE</span><span class="bien-val dpe-${(bien.dpe||'').toLowerCase()}">${bien.dpe}</span></div>`,
+      bien?.etat         && `<div class="bien-item"><span class="bien-lbl">État</span><span class="bien-val">${bien.etat}</span></div>`,
+      bien?.prix_demande && `<div class="bien-item"><span class="bien-lbl">Prix demandé</span><span class="bien-val" style="color:#b8893a;font-weight:600">${parseInt(bien.prix_demande).toLocaleString('fr-FR')} €</span></div>`,
+    ].filter(Boolean).join('');
+
+    // Calcul estimation si surface + prix médian disponibles
+    const estMin = bien?.surface && stats.min_m2  ? Math.round(parseInt(bien.surface) * stats.min_m2).toLocaleString('fr-FR')  : null;
+    const estMax = bien?.surface && stats.max_m2  ? Math.round(parseInt(bien.surface) * stats.max_m2).toLocaleString('fr-FR')  : null;
+    const estMed = bien?.surface && stats.mediane_m2 ? Math.round(parseInt(bien.surface) * stats.mediane_m2).toLocaleString('fr-FR') : null;
+
     const html = `<!DOCTYPE html>
-<html lang="fr"><head><meta charset="UTF-8">
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
 <style>
-  @page { size: A4; margin: 18mm 20mm; }
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Figtree:wght@300;400;500;600&display=swap');
+
+  @page { size: A4; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 11px; color: #1c1a16; line-height: 1.65; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .header { background: #1c1a16; color: #f7f4ee; padding: 20px 24px; margin-bottom: 24px; }
-  .header-top { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(184,137,58,.3); padding-bottom: 12px; margin-bottom: 12px; }
-  .brand { font-size: 18px; font-style: italic; color: #d4a853; }
-  .header-date { font-size: 9px; color: rgba(247,244,238,.45); }
-  .header-addr { font-size: 17px; font-weight: 300; color: #f7f4ee; margin-bottom: 4px; }
-  .header-agence { font-size: 9px; color: rgba(247,244,238,.45); letter-spacing: 1.5px; text-transform: uppercase; }
-  .stripe { height: 3px; background: linear-gradient(90deg, #b8893a, #d4a853); }
-  section { margin-bottom: 20px; }
-  h2 { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #b8893a; font-weight: 700; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid #e0d8c8; }
-  h3 { font-size: 12px; font-weight: 600; color: #1c1a16; margin: 12px 0 4px; }
-  p { margin-bottom: 8px; font-size: 10.5px; color: #4a4640; }
-  strong { color: #1c1a16; font-weight: 600; }
-  ul { margin: 6px 0 10px 16px; }
-  li { margin-bottom: 3px; font-size: 10.5px; color: #4a4640; }
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
-  .stat-box { background: #f7f4ee; border: 1px solid #e0d8c8; border-radius: 6px; padding: 10px; text-align: center; }
-  .stat-val { font-size: 18px; font-weight: 700; color: #b8893a; font-family: Georgia, serif; line-height: 1; margin-bottom: 3px; }
-  .stat-lbl { font-size: 8px; color: #8a8478; text-transform: uppercase; letter-spacing: 1px; }
-  .bien-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
-  thead tr { background: #1c1a16; color: #d4a853; }
-  thead th { padding: 6px 8px; text-align: left; font-weight: 600; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; }
+  body {
+    font-family: 'Figtree', sans-serif;
+    background: #fff; color: #1c1a16;
+    font-size: 11.5px; line-height: 1.65;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── COVER — page de garde sombre ── */
+  .cover {
+    background: #1c1a16;
+    color: #f7f4ee;
+    padding: 52px 50px 44px;
+    page-break-after: always;
+  }
+  .cover-stripe {
+    height: 3px;
+    background: linear-gradient(90deg, #b8893a, #d4a853, #b8893a);
+    margin: -52px -50px 36px -50px;
+  }
+  .cover-label {
+    font-size: 9px; letter-spacing: 3px;
+    text-transform: uppercase; color: #b8893a;
+    margin-bottom: 14px; font-weight: 600;
+  }
+  .cover-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px; font-weight: 300; line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  .cover-adresse {
+    font-size: 14px; color: rgba(247,244,238,.6);
+    margin-bottom: 36px; font-weight: 300;
+  }
+  .cover-meta {
+    display: flex; gap: 0;
+    border-top: 1px solid rgba(255,255,255,.1);
+    padding-top: 24px; margin-top: 24px;
+  }
+  .cover-meta-item {
+    flex: 1;
+    padding-right: 24px;
+    border-right: 1px solid rgba(255,255,255,.08);
+    margin-right: 24px;
+  }
+  .cover-meta-item:last-child { border-right: none; margin-right: 0; }
+  .cover-meta-item label {
+    font-size: 8px; color: #b8893a;
+    letter-spacing: 2px; text-transform: uppercase;
+    display: block; margin-bottom: 6px; font-weight: 600;
+  }
+  .cover-meta-item .val {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px; font-weight: 600; color: #f7f4ee; line-height: 1;
+  }
+  .cover-meta-item .val-unit {
+    font-size: 11px; color: rgba(247,244,238,.45);
+    font-family: 'Figtree', sans-serif; font-weight: 300; margin-left: 2px;
+  }
+
+  /* ── SECTIONS ── */
+  .section {
+    padding: 28px 50px;
+    border-bottom: 1px solid #ede8df;
+  }
+  .section:last-of-type { border-bottom: none; }
+  .section-title {
+    font-size: 8.5px; letter-spacing: 3px;
+    text-transform: uppercase; color: #9a9180;
+    font-weight: 600;
+    margin-bottom: 18px; padding-bottom: 8px;
+    border-bottom: 1px solid #e8e0d0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: #e8e0d0; }
+
+  /* ── STATS GRID ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .stat-box {
+    background: #f7f4ee; border-radius: 9px;
+    padding: 14px 16px; border: 1px solid #e8e0d0;
+  }
+  .stat-box label {
+    font-size: 8.5px; color: #9a9180;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    display: block; margin-bottom: 6px; font-weight: 500;
+  }
+  .stat-box .val {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px; font-weight: 600; color: #b8893a; line-height: 1;
+  }
+  .stat-box .sub { font-size: 10px; color: #9a9180; margin-top: 3px; }
+
+  /* ── ESTIMATION ── */
+  .estim-wrap {
+    background: #1c1a16; border-radius: 10px;
+    padding: 18px 20px; margin-top: 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .estim-lbl { font-size: 8.5px; color: #b8893a; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-bottom: 6px; }
+  .estim-val { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 600; color: #f7f4ee; line-height: 1; }
+  .estim-sub { font-size: 10px; color: rgba(247,244,238,.4); margin-top: 3px; }
+  .estim-sep { width: 1px; height: 40px; background: rgba(255,255,255,.08); flex-shrink: 0; }
+
+  /* ── BIEN CARACTÉRISTIQUES ── */
+  .bien-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .bien-item {
+    background: #f7f4ee; border: 1px solid #e8e0d0;
+    border-radius: 8px; padding: 10px 13px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .bien-lbl { font-size: 8.5px; color: #9a9180; text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
+  .bien-val { font-size: 13px; font-weight: 500; color: #1c1a16; }
+  .dpe-a { color: #2a8a60 !important; font-weight: 700; }
+  .dpe-b { color: #4aaa80 !important; font-weight: 700; }
+  .dpe-c { color: #8aaa40 !important; font-weight: 700; }
+  .dpe-d { color: #c8a020 !important; font-weight: 700; }
+  .dpe-e { color: #c87020 !important; font-weight: 700; }
+  .dpe-f { color: #c84040 !important; font-weight: 700; }
+  .dpe-g { color: #901010 !important; font-weight: 700; }
+
+  /* ── POINTS FORTS ── */
+  .points-box {
+    background: rgba(184,137,58,.05);
+    border: 1px solid rgba(184,137,58,.18);
+    border-radius: 8px; padding: 12px 15px;
+    font-size: 11.5px; color: #4a4640; line-height: 1.6;
+    margin-top: 10px;
+  }
+  .points-box::before { content: '✦ '; color: #b8893a; }
+
+  /* ── SYNTHÈSE IA ── */
+  .synthese { font-size: 11.5px; color: #4a4640; line-height: 1.8; font-weight: 300; }
+  .synthese p { margin-bottom: 12px; }
+  .synthese h2 { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 400; color: #1c1a16; margin: 18px 0 7px; }
+  .synthese h3 { font-size: 12px; font-weight: 600; color: #1c1a16; margin: 14px 0 5px; }
+  .synthese h4 { font-size: 11.5px; font-weight: 600; color: #4a4640; margin: 10px 0 4px; }
+  .synthese strong { font-weight: 600; color: #1c1a16; }
+  .synthese em { font-style: italic; color: #4a4640; }
+  .synthese ul { padding-left: 16px; margin: 6px 0 12px; }
+  .synthese li { margin-bottom: 4px; }
+
+  /* ── TABLE DVF ── */
+  table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  thead tr { background: #1c1a16; }
+  th {
+    padding: 8px 10px; text-align: left;
+    font-size: 8px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: #d4a853;
+    font-weight: 600;
+  }
   tbody tr:nth-child(even) { background: #f7f4ee; }
-  tbody td { padding: 5px 8px; border-bottom: 1px solid #e8e0d0; color: #4a4640; }
-  .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e0d8c8; display: flex; justify-content: space-between; font-size: 8px; color: #b8b0a0; }
-</style></head><body>
-<div class="stripe"></div>
-<div class="header">
-  <div class="header-top">
-    <div class="brand">LeadFlow · Mandat</div>
-    <div class="header-date">Généré le ${now}</div>
+  tbody tr:hover { background: #f0ebe0; }
+  td { padding: 7px 10px; border-bottom: 1px solid #ede8df; color: #4a4640; }
+  tr:last-child td { border-bottom: none; }
+  td strong { color: #1c1a16; font-weight: 600; }
+
+  /* ── FOOTER ── */
+  .footer {
+    padding: 16px 50px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid #e8e0d0;
+    background: #faf8f4;
+  }
+  .footer-brand { font-family: 'Cormorant Garamond', serif; font-size: 15px; color: #9a9180; }
+  .footer-brand em { font-style: italic; color: #b8893a; }
+  .footer-info { font-size: 9.5px; color: #b8b0a0; text-align: right; line-height: 1.6; }
+  .source {
+    font-size: 9px; color: #b8b0a0; font-style: italic;
+    margin-top: 14px; padding-top: 10px;
+    border-top: 1px solid #ede8df;
+  }
+
+  @media print {
+    .no-print { display: none !important; }
+    body { font-size: 10.5px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ COVER ══════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-stripe"></div>
+  <div class="cover-label">Dossier de prise de mandat · LeadFlow</div>
+  <div class="cover-title">Analyse de marché<br>& Recommandation IA</div>
+  <div class="cover-adresse">📍 ${adresse}</div>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <label>Prix médian du secteur</label>
+      <div class="val">${stats.mediane_m2 ? stats.mediane_m2.toLocaleString('fr-FR') : '—'}<span class="val-unit">€/m²</span></div>
+    </div>
+    <div class="cover-meta-item">
+      <label>Transactions analysées</label>
+      <div class="val">${stats.nb || 0}<span class="val-unit">ventes</span></div>
+    </div>
+    ${estMed ? `<div class="cover-meta-item">
+      <label>Estimation médiane</label>
+      <div class="val">${estMed}<span class="val-unit">€</span></div>
+    </div>` : ''}
+    <div class="cover-meta-item">
+      <label>Préparé par</label>
+      <div class="val" style="font-size:15px;font-family:'Figtree',sans-serif;font-weight:500">${agence?.nom || 'Votre agence'}</div>
+    </div>
+    <div class="cover-meta-item">
+      <label>Généré le</label>
+      <div class="val" style="font-size:15px;font-family:'Figtree',sans-serif;font-weight:400">${now_str}</div>
+    </div>
   </div>
-  <div class="header-addr">${adresse}</div>
-  <div class="header-agence">${agence?.nom || 'Votre agence'}</div>
 </div>
 
-${bienInfos ? `<section>
-  <h2>Caractéristiques du bien</h2>
-  <ul class="bien-grid">${bienInfos}</ul>
-</section>` : ''}
+<!-- ══ CARACTÉRISTIQUES DU BIEN ═══════════════════════════════ -->
+${bienItems ? `<div class="section">
+  <div class="section-title">Caractéristiques du bien</div>
+  <div class="bien-grid">${bienItems}</div>
+  ${bien?.points_forts ? `<div class="points-box">${bien.points_forts}</div>` : ''}
+</div>` : ''}
 
-<section>
-  <h2>Marché local — Données DVF</h2>
+<!-- ══ MARCHÉ LOCAL — DONNÉES DVF ════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Marché local · Données DVF officielles</div>
   <div class="stats-grid">
-    <div class="stat-box"><div class="stat-val">${stats.nb || 0}</div><div class="stat-lbl">Transactions</div></div>
-    <div class="stat-box"><div class="stat-val">${stats.mediane_m2 ? stats.mediane_m2.toLocaleString('fr') : '—'}</div><div class="stat-lbl">€/m² médian</div></div>
-    <div class="stat-box"><div class="stat-val">${stats.min_m2 ? stats.min_m2.toLocaleString('fr') : '—'}</div><div class="stat-lbl">€/m² min</div></div>
-    <div class="stat-box"><div class="stat-val">${stats.max_m2 ? stats.max_m2.toLocaleString('fr') : '—'}</div><div class="stat-lbl">€/m² max</div></div>
+    <div class="stat-box">
+      <label>Prix médian</label>
+      <div class="val">${stats.mediane_m2 ? stats.mediane_m2.toLocaleString('fr-FR') : '—'}</div>
+      <div class="sub">€ par m²</div>
+    </div>
+    <div class="stat-box">
+      <label>Fourchette basse</label>
+      <div class="val">${stats.min_m2 ? stats.min_m2.toLocaleString('fr-FR') : '—'}</div>
+      <div class="sub">€ par m²</div>
+    </div>
+    <div class="stat-box">
+      <label>Fourchette haute</label>
+      <div class="val">${stats.max_m2 ? stats.max_m2.toLocaleString('fr-FR') : '—'}</div>
+      <div class="sub">€ par m²</div>
+    </div>
+    <div class="stat-box">
+      <label>Transactions</label>
+      <div class="val">${stats.nb || 0}</div>
+      <div class="sub">dans un rayon de 300m</div>
+    </div>
   </div>
-  ${transHtml ? `<table><thead><tr><th>Adresse</th><th>Type</th><th>Surface</th><th>Prix</th><th>€/m²</th><th>Date</th></tr></thead><tbody>${transHtml}</tbody></table>` : '<p style="color:#8a8478;font-style:italic">Aucune transaction DVF dans ce secteur.</p>'}
-</section>
-
-<section>
-  <h2>Analyse &amp; Recommandations IA</h2>
-  ${syntheseHtml}
-</section>
-
-<div class="footer">
-  <span>LeadFlow — Dossier de prise de mandat</span>
-  <span>${agence?.nom || ''} · ${adresse}</span>
+  ${estMin && estMax ? `<div class="estim-wrap">
+    <div>
+      <div class="estim-lbl">Estimation basse</div>
+      <div class="estim-val">${estMin} €</div>
+      <div class="estim-sub">${stats.min_m2?.toLocaleString('fr-FR')} €/m² × ${bien?.surface} m²</div>
+    </div>
+    <div class="estim-sep"></div>
+    <div>
+      <div class="estim-lbl">Estimation médiane</div>
+      <div class="estim-val">${estMed} €</div>
+      <div class="estim-sub">${stats.mediane_m2?.toLocaleString('fr-FR')} €/m² × ${bien?.surface} m²</div>
+    </div>
+    <div class="estim-sep"></div>
+    <div>
+      <div class="estim-lbl">Estimation haute</div>
+      <div class="estim-val">${estMax} €</div>
+      <div class="estim-sub">${stats.max_m2?.toLocaleString('fr-FR')} €/m² × ${bien?.surface} m²</div>
+    </div>
+  </div>` : ''}
 </div>
-</body></html>`;
+
+<!-- ══ ANALYSE & RECOMMANDATIONS IA ══════════════════════════ -->
+<div class="section">
+  <div class="section-title">Analyse &amp; Recommandations · Intelligence Artificielle</div>
+  <div class="synthese">${syntheseHtml}</div>
+</div>
+
+<!-- ══ TRANSACTIONS DE RÉFÉRENCE ═════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Transactions de référence · ${stats.nb || 0} ventes dans un rayon de 300m</div>
+  ${lignes ? `<table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Surface</th>
+        <th>Prix de vente</th>
+        <th>Prix / m²</th>
+        <th>Rue</th>
+      </tr>
+    </thead>
+    <tbody>${lignes}</tbody>
+  </table>` : '<p style="color:#9a9180;font-style:italic;font-size:11px">Aucune transaction DVF trouvée dans ce secteur. Élargissez le rayon de recherche.</p>'}
+  <div class="source">
+    Source : Demande de Valeurs Foncières (DVF) — Ministère de l'Économie et des Finances.
+    Données officielles des transactions notariées enregistrées auprès des services fiscaux.
+    Période : ${stats.periode || 'données disponibles'}.
+  </div>
+</div>
+
+<!-- ══ FOOTER ════════════════════════════════════════════════ -->
+<div class="footer">
+  <div class="footer-brand">Lead<em>Flow</em> · Dossier Mandat</div>
+  <div class="footer-info">
+    ${agence?.nom || 'Votre agence'}${agence?.agent ? ' · ' + agence.agent : ''}<br>
+    Données DVF officielles · Généré le ${now_str}
+  </div>
+</div>
+
+</body>
+</html>`;
 
     // Log du dossier en base
     try {
