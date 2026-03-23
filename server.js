@@ -258,7 +258,7 @@ app.post('/api/analyse', async (req, res) => {
     // Récupération des transactions DVF dans un rayon ~300m (0.003 degré ≈ 300m)
     const rayon = 0.003;
     const result = await pool.query(`
-      SELECT adresse, prix, surface, prix_m2, type_local, date_mutation, nb_pieces
+      SELECT adresse, prix, surface, prix_m2, type_local, TO_CHAR(date_mutation, 'YYYY-MM') as date_mutation, nb_pieces
       FROM dvf
       WHERE lat BETWEEN $1 AND $2
         AND lon BETWEEN $3 AND $4
@@ -402,7 +402,7 @@ app.post('/api/pdf', async (req, res) => {
     // ── Lignes tableau DVF ────────────────────────────────────
     const lignes = transactions.slice(0, 15).map(t => `
       <tr>
-        <td>${String(t.date_mutation || '').slice(0,7) || '—'}</td>
+        <td>${t.date_mutation || ''.slice(0,7) || '—'}</td>
         <td>${t.type_local || '—'}</td>
         <td>${t.surface || '—'} m²</td>
         <td>${parseInt(t.prix || 0).toLocaleString('fr-FR')} €</td>
