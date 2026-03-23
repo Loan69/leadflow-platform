@@ -776,10 +776,11 @@
           date:       raw.date || raw.date_annonce || "Aujourd'hui",
           potentiel:  raw.potentiel  || 'moyen',
           score:      parseInt(raw.score) || 0,
-          points:     raw.points || [
-            raw.accroche     && { ico: '⭐', label: 'Point fort',  desc: raw.accroche },
-            raw.score_raison && { ico: '🔍', label: 'Analyse IA', desc: raw.score_raison },
+          // Analyse IA retirée des points — elle va dans la recommandation IA
+          points: raw.points || [
+            raw.accroche && { ico: '⭐', label: 'Point fort', desc: raw.accroche },
           ].filter(Boolean),
+          score_raison: raw.score_raison || raw.analyse || raw.score_desc || '',
           approche:   raw.approche   || raw.script || raw.sript || '',
           mail_objet: raw.mail_objet || '',
           mail_corps: raw.mail_corps || raw.script || raw.sript || raw.accroche || ''
@@ -910,7 +911,7 @@
       <div class="sec">Recommandation IA</div>
       <div class="approche">
         <div class="app-lbl">Analyse du bien</div>
-        <div class="app-txt">${b.score_desc || b.approche}</div>
+        <div class="app-txt">${b.score_raison || b.score_desc || b.approche}</div>
       </div>
     </div>
     <div class="sec-mail">
