@@ -169,39 +169,52 @@
       .count-txt { font-size: 10px; color: var(--pale); }
       .count-num { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gold); font-weight: 500; }
 
-      /* Liste scrollable des cartes biens */
-      .bien-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+      /* Liste scrollable des cartes biens
+        overflow-y: auto = scroll natif quand ça dépasse
+        on ne ratatine pas les cartes, on scrolle */
+      .bien-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 7px; }
       .bien-list::-webkit-scrollbar { width: 3px; }
       .bien-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
 
       /* ── BIEN CARD — carte dans la sidebar ─────
         Générée par renderList() · Clic → sel(id)
+        Padding généreux pour que les cartes respirent
         La barre gauche dorée apparaît sur .active */
       .bcard {
         background: var(--cream); border: 1px solid var(--border);
-        border-radius: 10px; padding: 10px 13px;
+        border-radius: 11px; padding: 13px 14px;
         cursor: pointer; transition: all .18s;
         position: relative; overflow: hidden;
+        flex-shrink: 0; /* ne rétrécit jamais — on scrolle à la place */
       }
       .bcard::before {
         content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-        border-radius: 10px 0 0 10px; opacity: 0; transition: opacity .2s;
+        border-radius: 11px 0 0 11px; opacity: 0; transition: opacity .2s;
       }
       .bcard:hover { background: white; border-color: var(--border2); }
       .bcard.active { background: white; border-color: var(--gold); }
       .bcard.active::before { background: var(--gold); opacity: 1; }
-      .bcard-row1 { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 4px; }
-      .bcard-title { font-size: 12.5px; font-weight: 500; color: var(--ink); line-height: 1.35; }
-      .bcard-addr  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+      .bcard-row1 { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+      /* Le titre peut passer sur 2 lignes si l'adresse est longue */
+      .bcard-title { font-size: 12.5px; font-weight: 500; color: var(--ink); line-height: 1.4; }
+      .bcard-addr  { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
 
       /* Point coloré indiquant le potentiel (vert/orange/rouge) */
-      .pot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+      .pot-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
       .pd-fort   { background: var(--green); }
       .pd-moyen  { background: var(--orange); }
       .pd-faible { background: var(--red); }
-      .bcard-row2 { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
-      .bcard-prix { font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; color: var(--gold); }
-      .bcard-meta { font-size: 10px; color: var(--pale); }
+
+      /* Séparateur fin entre titre et métriques */
+      .bcard-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+      .bcard-row2 { display: flex; align-items: center; justify-content: space-between; }
+      .bcard-prix { font-family: 'Cormorant Garamond', serif; font-size: 17px; font-weight: 600; color: var(--gold); }
+      /* Meta sur 2 éléments séparés pour plus d'air */
+      .bcard-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+      .bcard-meta-top { font-size: 10px; color: var(--pale); }
+      .bcard-meta-statut { font-size: 10px; font-weight: 500; }
 
       /* ── PANNEAU DE DÉTAIL ─────────────────────
         Affiche soit l'état vide soit le détail
@@ -506,19 +519,20 @@
         const potDot  = { fort: 'pd-fort', moyen: 'pd-moyen', faible: 'pd-faible' };
 
         document.getElementById('bien-list').innerHTML = filtered.map(b => `
-          <div class="bcard ${selectedId === b.id ? 'active' : ''}" onclick="sel('${b.id}')">
+          <div class="bcard ${String(selectedId) === String(b.id) ? 'active' : ''}" onclick="sel('${b.id}')">
             <div class="bcard-row1">
-              <div>
+              <div style="flex:1;min-width:0;">
                 <div class="bcard-title">${b.emoji || '🏠'} ${b.titre || b.adresse}</div>
-                <div class="bcard-addr">${b.adresse}</div>
+                <div class="bcard-addr">📍 ${b.adresse}</div>
               </div>
               <div class="pot-dot ${potDot[b.potentiel] || 'pd-moyen'}"></div>
             </div>
+            <div class="bcard-divider"></div>
             <div class="bcard-row2">
               <div class="bcard-prix">${(parseInt(b.prix) || 0).toLocaleString('fr-FR')} €</div>
               <div class="bcard-meta">
-                ${b.surface || '?'}m² · DPE ${b.dpe || '?'} ·
-                <span style="color:${stColor[b.statut] || stColor.new};font-weight:500">
+                <span class="bcard-meta-top">${b.surface || '?'}m² · DPE ${b.dpe || '?'}</span>
+                <span class="bcard-meta-statut" style="color:${stColor[b.statut] || stColor.new}">
                   ${stLabel[b.statut] || 'Nouveau'}
                 </span>
               </div>
