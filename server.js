@@ -595,14 +595,49 @@ body {
 .synthese ul { padding-left: 16px; margin: 6px 0 11px; }
 .synthese li { margin-bottom: 4px; }
 
-/* ── TABLE DVF ── */
-table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-thead tr { background: #1c1a16; }
-th { padding: 8px 10px; text-align: left; font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: #d4a853; font-weight: 600; }
-tbody tr:nth-child(even) { background: #f7f4ee; }
-td { padding: 6.5px 10px; border-bottom: 1px solid #ede8df; color: #4a4640; }
-tr:last-child td { border-bottom: none; }
-td strong { color: #1c1a16; font-weight: 600; }
+/* ── TABLE DVF OPTIMISÉE ── */
+table { 
+  width: 100%; 
+  border-collapse: collapse; 
+  font-size: 10.5px; 
+  margin-top: 10px;
+  table-layout: fixed; /* Force les colonnes à respecter les largeurs */
+}
+
+/* On applique le fond sur les TH directement (plus stable à l'impression) */
+th { 
+  background-color: #1c1a16 !important; 
+  color: #d4a853 !important; 
+  padding: 10px; 
+  text-align: left; 
+  font-size: 8px; 
+  letter-spacing: 1.5px; 
+  text-transform: uppercase; 
+  font-weight: 600;
+  -webkit-print-color-adjust: exact;
+}
+
+td { 
+  padding: 8px 10px; 
+  border-bottom: 1px solid #ede8df; 
+  color: #4a4640; 
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+
+/* Lignes alternées plus visibles */
+tbody tr:nth-child(even) { 
+  background-color: #fcfbf9 !important; 
+  -webkit-print-color-adjust: exact;
+}
+
+/* Largeurs de colonnes pour éviter l'effet "tassé" */
+th:nth-child(1), td:nth-child(1) { width: 15%; } /* Date */
+th:nth-child(2), td:nth-child(2) { width: 18%; } /* Type */
+th:nth-child(3), td:nth-child(3) { width: 12%; } /* Surf */
+th:nth-child(4), td:nth-child(4) { width: 20%; } /* Prix */
+th:nth-child(5), td:nth-child(5) { width: 15%; } /* €/m2 */
+th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
 
 /* ── SOURCE ── */
 .source { font-size: 9px; color: #b8b0a0; font-style: italic; margin-top: 12px; padding-top: 10px; border-top: 1px solid #ede8df; }
