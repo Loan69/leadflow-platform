@@ -755,6 +755,9 @@ td strong { color: #1c1a16; font-weight: 600; }
 </body>
 </html>`;
 
+  // 2. ENVOYER LA RÉPONSE (C'est ce qui manque !)
+  res.send(html);
+
   } catch(e) {
     console.error(`[MANDAT][PDF] ❌ Erreur:`, e.message);
     res.status(500).json({ error: e.message });
