@@ -231,34 +231,34 @@ app.patch('/api/pige/bien/:id', async (req, res) => {
 // Étape 1 : géocodage de l'adresse + récupération des transactions DVF
 // Étape 2 : rédaction de l'analyse par Claude
 // Étape 3 : génération du PDF (HTML → blob téléchargeable)
-
+ 
 // ÉTAPE 1 — Géocodage + DVF
 // Appelle l'API adresse.data.gouv.fr pour obtenir les coordonnées GPS
 // puis récupère les transactions DVF dans un rayon de 300m en base PostgreSQL
 app.post('/api/analyse', async (req, res) => {
   const { adresse } = req.body;
   if (!adresse) return res.status(400).json({ error: 'Adresse manquante' });
-
+ 
   try {
     console.log(`[MANDAT][ANALYSE] Géocodage : ${adresse}`);
-
+ 
     // Géocodage via API gouvernementale (gratuite, sans clé)
     const geoRes  = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresse)}&limit=1`);
     const geoData = await geoRes.json();
-
+ 
     if (!geoData.features?.length) {
       return res.status(404).json({ error: 'Adresse introuvable — vérifiez la saisie' });
     }
-
+ 
     const feat = geoData.features[0];
     const [lon, lat] = feat.geometry.coordinates;
     const adresseNormalisee = feat.properties.label;
     console.log(`[MANDAT][ANALYSE] Coordonnées : ${lat}, ${lon} — ${adresseNormalisee}`);
-
+ 
     // Récupération des transactions DVF dans un rayon ~300m (0.003 degré ≈ 300m)
     const rayon = 0.003;
     const result = await pool.query(`
-      SELECT adresse, prix, surface, prix_m2, type_local, TO_CHAR(date_mutation, 'YYYY-MM') as date_mutation, nb_pieces
+      SELECT adresse, prix, surface, prix_m2, type_local, date_mutation, nb_pieces
       FROM dvf
       WHERE lat BETWEEN $1 AND $2
         AND lon BETWEEN $3 AND $4
@@ -267,10 +267,10 @@ app.post('/api/analyse', async (req, res) => {
       ORDER BY date_mutation DESC
       LIMIT 20
     `, [lat - rayon, lat + rayon, lon - rayon, lon + rayon]);
-
+ 
     const transactions = result.rows;
     console.log(`[MANDAT][ANALYSE] ${transactions.length} transactions DVF trouvées`);
-
+ 
     // Calcul des statistiques
     let stats = { nb: 0, mediane_m2: null, min_m2: null, max_m2: null, periode: null };
     if (transactions.length > 0) {
@@ -284,32 +284,32 @@ app.post('/api/analyse', async (req, res) => {
         periode:    `${transactions[transactions.length-1].date_mutation?.slice(0,7)} → ${transactions[0].date_mutation?.slice(0,7)}`
       };
     }
-
+ 
     res.json({ adresse: adresseNormalisee, lat, lon, stats, transactions });
-
+ 
   } catch(e) {
     console.error('[MANDAT][ANALYSE] Erreur :', e.message);
     res.status(500).json({ error: e.message });
   }
 });
-
+ 
 // ÉTAPE 2 — Synthèse IA via Claude
 // Reçoit les données DVF + infos du bien et rédige une analyse professionnelle
 app.post('/api/synthese', async (req, res) => {
   const { adresse, stats, transactions, bienSurface, bienType, bienPieces, bienEtage, bienDpe, bienEtat, bienPointsForts, bienPrixDemande, proprietaireNom, motifVente } = req.body;
-
+ 
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'Clé API Anthropic manquante (variable ANTHROPIC_API_KEY)' });
   }
-
+ 
   try {
     console.log(`[MANDAT][SYNTHESE] Rédaction analyse IA pour : ${adresse}`);
-
+ 
     // Construction du prompt enrichi avec tous les champs du formulaire
     const transactionsText = transactions.slice(0, 10).map(t =>
       `• ${t.adresse} — ${t.type_local} ${t.surface}m² — ${parseInt(t.prix).toLocaleString('fr')}€ (${Math.round(t.prix_m2)}€/m²) — ${t.date_mutation?.slice(0,7)}`
     ).join('\n');
-
+ 
     const bienDetails = [
       bienType     && `Type : ${bienType}`,
       bienSurface  && `Surface : ${bienSurface}m²`,
@@ -322,31 +322,48 @@ app.post('/api/synthese', async (req, res) => {
       proprietaireNom  && `Propriétaire : ${proprietaireNom}`,
       motifVente       && `Motif de vente : ${motifVente}`,
     ].filter(Boolean).join('\n');
-
-    const prompt = `Tu es un expert immobilier. Rédige un dossier de prise de mandat professionnel et percutant pour l'adresse suivante.
-
-BIEN À EXPERTISER :
-Adresse : ${adresse}
-${bienDetails}
-
-MARCHÉ LOCAL — Transactions récentes dans un rayon de 300m :
-${transactionsText || 'Aucune transaction trouvée dans ce rayon.'}
-
-STATISTIQUES DU SECTEUR :
+ 
+    const estBas = bienSurface && stats.min_m2    ? Math.round(parseInt(bienSurface) * stats.min_m2   ).toLocaleString('fr') : '?';
+    const estHau = bienSurface && stats.max_m2    ? Math.round(parseInt(bienSurface) * stats.max_m2   ).toLocaleString('fr') : '?';
+    const estMed = bienSurface && stats.mediane_m2 ? Math.round(parseInt(bienSurface) * stats.mediane_m2).toLocaleString('fr') : '?';
+ 
+    const prompt = `Tu es un expert en estimation immobilière.
+Tu dois rédiger la partie analyse de marché d'un dossier de prise de mandat
+pour un agent immobilier qui va rencontrer un propriétaire vendeur.
+ 
+Bien concerné : ${bienType || 'appartement'} de ${bienSurface || '?'}m²
+situé au ${adresse}
+${bienDetails ? '\nInformations complémentaires :\n' + bienDetails : ''}
+ 
+Données de marché réelles (transactions des 24 derniers mois dans un rayon de 300m) :
 - Nombre de transactions : ${stats.nb}
-- Prix médian : ${stats.mediane_m2 ? stats.mediane_m2.toLocaleString('fr') + '€/m²' : 'données insuffisantes'}
-- Fourchette : ${stats.min_m2 && stats.max_m2 ? stats.min_m2.toLocaleString('fr') + '€/m² → ' + stats.max_m2.toLocaleString('fr') + '€/m²' : '—'}
-- Période couverte : ${stats.periode || '—'}
-
-Rédige en Markdown une synthèse structurée avec :
-1. **Estimation de valeur** — fourchette réaliste basée sur les données DVF, comparaison avec le prix demandé si fourni
-2. **Analyse du marché local** — dynamisme, délai de vente estimé, profil acheteur type
-3. **Atouts du bien** — points forts à valoriser dans l'annonce
-4. **Recommandations stratégiques** — positionnement prix, timing, conseils pour maximiser la vente
-5. **Conclusion** — message de réassurance pour le propriétaire${proprietaireNom ? ' (' + proprietaireNom + ')' : ''}
-
-Sois précis, professionnel, et utilise les chiffres réels. Maximum 500 mots.`;
-
+- Prix médian au m² : ${stats.mediane_m2 ? stats.mediane_m2.toLocaleString('fr') : '?'}€
+- Fourchette : ${stats.min_m2 ? stats.min_m2.toLocaleString('fr') : '?'}€/m² à ${stats.max_m2 ? stats.max_m2.toLocaleString('fr') : '?'}€/m²
+- Période couverte : ${stats.periode || '24 derniers mois'}
+ 
+Exemples de transactions récentes :
+${transactionsText || 'Aucune transaction trouvée dans ce rayon.'}
+ 
+Rédige une synthèse professionnelle en 4 paragraphes en prose fluide (pas de listes, pas de titres avec #, pas de **gras**) :
+ 
+Paragraphe 1 — Description du marché local : décris le dynamisme du marché avec les chiffres réels.
+Ton factuel et précis, cite les prix médians et la fourchette.
+ 
+Paragraphe 2 — Positionnement du bien : estime la valeur de ce bien dans ce marché.
+${bienSurface ? `Fourchette réaliste : entre ${estBas}€ et ${estHau}€, valeur médiane estimée à ${estMed}€.` : 'Positionne le bien par rapport aux transactions récentes.'}
+${bienPrixDemande ? `Le propriétaire demande ${parseInt(bienPrixDemande).toLocaleString('fr')}€ — compare avec le marché et conseille.` : ''}
+ 
+Paragraphe 3 — Facteurs de valorisation : cite les éléments qui peuvent faire varier le prix
+(étage, état, exposition, DPE, points forts spécifiques de ce bien).
+ 
+Paragraphe 4 — Recommandation : donne un prix de mise en marché précis et explique la stratégie.
+${proprietaireNom ? `Adresse-toi directement à ${proprietaireNom}.` : ''}
+${motifVente ? `Tiens compte du motif de vente : ${motifVente}.` : ''}
+Termine par un message de réassurance sur ta maîtrise du marché local.
+ 
+Ton : professionnel, rassurant, factuel. Phrases complètes. Pas de bullet points.
+Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.`;
+ 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -360,56 +377,49 @@ Sois précis, professionnel, et utilise les chiffres réels. Maximum 500 mots.`;
         messages:   [{ role: 'user', content: prompt }]
       })
     });
-
+ 
     const claudeData = await claudeRes.json();
     if (!claudeRes.ok) throw new Error(claudeData.error?.message || 'Erreur API Claude');
-
+ 
     const synthese = claudeData.content[0].text;
     console.log(`[MANDAT][SYNTHESE] Analyse rédigée (${synthese.length} caractères)`);
     res.json({ synthese });
-
+ 
   } catch(e) {
     console.error('[MANDAT][SYNTHESE] Erreur :', e.message);
     res.status(500).json({ error: e.message });
   }
 });
-
+ 
 // ÉTAPE 3 — Génération du rapport HTML
 // Construit un document HTML standalone avec mise en page A4 professionnelle
 // Stratégie marges : pas de @page margin:0 — on utilise un .page centré
 // avec padding interne, comme pour la pige. Rendu propre sans config impression.
 app.post('/api/pdf', async (req, res) => {
   const { adresse, stats, transactions, synthese, agence, bien } = req.body;
-
+ 
   try {
     console.log(`[MANDAT][PDF] Génération du rapport pour : ${adresse}`);
-
+ 
     const now_str = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
-
-    // ── Conversion Markdown → HTML ────────────────────────────
-    const syntheseHtml = (synthese || '')
-      .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
-      .replace(/^### (.+)$/gm,  '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm,   '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm,    '<h2>$1</h2>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g,     '<em>$1</em>')
-      .replace(/^[-*] (.+)$/gm,  '<li>$1</li>')
-      .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/^(?!<[hul\/])(.+)$/gm, m => m.trim() ? `<p>${m}</p>` : '');
-
+ 
+    // ── Conversion Markdown → HTML via marked ───────────────
+    // marked est installé (npm install marked) et gère tous les cas
+    // proprement : titres, gras, listes, paragraphes
+    const { marked } = require('marked');
+    const syntheseHtml = marked.parse(synthese || '');
+ 
     // ── Lignes tableau DVF ────────────────────────────────────
     const lignes = transactions.slice(0, 15).map(t => `
       <tr>
-        <td>${t.date_mutation || ''.slice(0,7) || '—'}</td>
+        <td>${String(t.date_mutation || '').slice(0,7) || '—'}</td>
         <td>${t.type_local || '—'}</td>
         <td>${t.surface || '—'} m²</td>
         <td>${parseInt(t.prix || 0).toLocaleString('fr-FR')} €</td>
         <td><strong>${Math.round(t.prix_m2 || 0).toLocaleString('fr-FR')} €/m²</strong></td>
         <td style="color:#8a8478;font-size:10px">${t.adresse || '—'}</td>
       </tr>`).join('');
-
+ 
     // ── Caractéristiques du bien ──────────────────────────────
     const bienItems = [
       bien?.type         && `<div class="bi"><span class="bi-l">Type</span><span class="bi-v">${bien.type}</span></div>`,
@@ -420,13 +430,13 @@ app.post('/api/pdf', async (req, res) => {
       bien?.etat         && `<div class="bi"><span class="bi-l">État</span><span class="bi-v">${bien.etat}</span></div>`,
       bien?.prix_demande && `<div class="bi"><span class="bi-l">Prix demandé</span><span class="bi-v gold">${parseInt(bien.prix_demande).toLocaleString('fr-FR')} €</span></div>`,
     ].filter(Boolean).join('');
-
+ 
     // ── Estimations calculées ─────────────────────────────────
     const surf = parseInt(bien?.surface) || 0;
     const estMin = surf && stats.min_m2    ? Math.round(surf * stats.min_m2   ).toLocaleString('fr-FR') : null;
     const estMed = surf && stats.mediane_m2? Math.round(surf * stats.mediane_m2).toLocaleString('fr-FR') : null;
     const estMax = surf && stats.max_m2    ? Math.round(surf * stats.max_m2   ).toLocaleString('fr-FR') : null;
-
+ 
     const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -436,10 +446,10 @@ app.post('/api/pdf', async (req, res) => {
 <style>
 /* ── Fonts ── */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Figtree:wght@300;400;500;600&display=swap');
-
+ 
 /* ── Reset ── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+ 
 /* ── Config impression ──
    Marges gérées par .page (padding interne)
    → rendu identique écran et impression */
@@ -455,7 +465,7 @@ app.post('/api/pdf', async (req, res) => {
   .no-print { display: none !important; }
   .cover { border-radius: 0 !important; }
 }
-
+ 
 /* ── Fond page et centrage ── */
 html { background: #e8e0d0; min-height: 100vh; }
 body {
@@ -465,7 +475,7 @@ body {
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
 }
-
+ 
 /* ── Conteneur page — simule les marges A4 ── */
 .page {
   background: white;
@@ -475,7 +485,7 @@ body {
   border-radius: 4px;
   overflow: hidden;
 }
-
+ 
 /* ── COVER ── */
 .cover {
   background: #1c1a16;
@@ -518,7 +528,7 @@ body {
   font-size: 20px; font-weight: 600; color: #f7f4ee; line-height: 1;
 }
 .cm-unit { font-size: 11px; color: rgba(247,244,238,.4); font-family: 'Figtree', sans-serif; margin-left: 2px; }
-
+ 
 /* ── SECTIONS ── */
 .section { padding: 26px 44px; border-bottom: 1px solid #ede8df; }
 .section:last-of-type { border-bottom: none; }
@@ -528,7 +538,7 @@ body {
   margin-bottom: 16px; padding-bottom: 8px;
   border-bottom: 1px solid #e8e0d0;
 }
-
+ 
 /* ── STATS GRID ── */
 .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 0; }
 .stat-box {
@@ -544,7 +554,7 @@ body {
   font-size: 22px; font-weight: 600; color: #b8893a; line-height: 1;
 }
 .stat-box .sub { font-size: 9.5px; color: #9a9180; margin-top: 2px; }
-
+ 
 /* ── ESTIMATION ── */
 .estim {
   background: #1c1a16; border-radius: 9px;
@@ -556,7 +566,7 @@ body {
 .estim-lbl { font-size: 8px; color: #b8893a; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; margin-bottom: 5px; }
 .estim-val { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: #f7f4ee; line-height: 1; }
 .estim-sub { font-size: 9px; color: rgba(247,244,238,.35); margin-top: 3px; }
-
+ 
 /* ── BIEN ── */
 .bien-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
 .bi {
@@ -574,7 +584,7 @@ body {
 .dpe-e { color: #c87020 !important; font-weight: 700; }
 .dpe-f { color: #c84040 !important; font-weight: 700; }
 .dpe-g { color: #901010 !important; font-weight: 700; }
-
+ 
 .points-box {
   margin-top: 10px; padding: 11px 14px;
   background: rgba(184,137,58,.05);
@@ -583,7 +593,7 @@ body {
   font-size: 11px; color: #4a4640; line-height: 1.6;
 }
 .points-box::before { content: '✦  '; color: #b8893a; }
-
+ 
 /* ── SYNTHÈSE ── */
 .synthese { font-size: 11.5px; color: #4a4640; line-height: 1.8; font-weight: 300; }
 .synthese p { margin-bottom: 11px; }
@@ -594,54 +604,53 @@ body {
 .synthese em { font-style: italic; }
 .synthese ul { padding-left: 16px; margin: 6px 0 11px; }
 .synthese li { margin-bottom: 4px; }
-
-/* ── TABLE DVF OPTIMISÉE ── */
-table { 
-  width: 100%; 
-  border-collapse: collapse; 
-  font-size: 10.5px; 
-  margin-top: 10px;
-  table-layout: fixed; /* Force les colonnes à respecter les largeurs */
+ 
+/* ── TABLE DVF — CSS robuste à l'impression ──
+   Pas de background sombre sur les th : les navigateurs l'ignorent souvent
+   On utilise une bordure dorée en bas + texte doré sur fond crème à la place */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  margin-top: 8px;
+  table-layout: fixed;
 }
-
-/* On applique le fond sur les TH directement (plus stable à l'impression) */
-th { 
-  background-color: #1c1a16 !important; 
-  color: #d4a853 !important; 
-  padding: 10px; 
-  text-align: left; 
-  font-size: 8px; 
-  letter-spacing: 1.5px; 
-  text-transform: uppercase; 
-  font-weight: 600;
+th {
+  background: #f0ebe0 !important;
   -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  padding: 9px 10px;
+  text-align: left;
+  font-size: 8px; letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #b8893a;
+  font-weight: 700;
+  border-bottom: 2px solid #b8893a;
 }
-
-td { 
-  padding: 8px 10px; 
-  border-bottom: 1px solid #ede8df; 
-  color: #4a4640; 
+tbody tr:nth-child(even) {
+  background: #f7f4ee !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #ede8df;
+  color: #4a4640;
   vertical-align: middle;
   word-wrap: break-word;
 }
-
-/* Lignes alternées plus visibles */
-tbody tr:nth-child(even) { 
-  background-color: #fcfbf9 !important; 
-  -webkit-print-color-adjust: exact;
-}
-
-/* Largeurs de colonnes pour éviter l'effet "tassé" */
-th:nth-child(1), td:nth-child(1) { width: 15%; } /* Date */
-th:nth-child(2), td:nth-child(2) { width: 18%; } /* Type */
-th:nth-child(3), td:nth-child(3) { width: 12%; } /* Surf */
-th:nth-child(4), td:nth-child(4) { width: 20%; } /* Prix */
-th:nth-child(5), td:nth-child(5) { width: 15%; } /* €/m2 */
-th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
-
+tr:last-child td { border-bottom: none; }
+td strong { color: #1c1a16; font-weight: 600; }
+th:nth-child(1), td:nth-child(1) { width: 14%; }
+th:nth-child(2), td:nth-child(2) { width: 16%; }
+th:nth-child(3), td:nth-child(3) { width: 11%; }
+th:nth-child(4), td:nth-child(4) { width: 19%; }
+th:nth-child(5), td:nth-child(5) { width: 15%; }
+th:nth-child(6), td:nth-child(6) { width: 25%; }
+ 
 /* ── SOURCE ── */
 .source { font-size: 9px; color: #b8b0a0; font-style: italic; margin-top: 12px; padding-top: 10px; border-top: 1px solid #ede8df; }
-
+ 
 /* ── FOOTER ── */
 .footer {
   padding: 16px 44px;
@@ -651,7 +660,7 @@ th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
 .footer-brand { font-family: 'Cormorant Garamond', serif; font-size: 15px; color: #9a9180; }
 .footer-brand em { font-style: italic; color: #b8893a; }
 .footer-info { font-size: 9px; color: #b8b0a0; text-align: right; line-height: 1.6; }
-
+ 
 /* ── BOUTON IMPRESSION ── */
 .print-btn {
   display: block; margin: 20px auto 0;
@@ -665,9 +674,9 @@ th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
 </style>
 </head>
 <body>
-
+ 
 <div class="page">
-
+ 
   <!-- ══ COVER ═══════════════════════════════════════════════ -->
   <div class="cover">
     <div class="cover-stripe"></div>
@@ -697,14 +706,14 @@ th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
       </div>
     </div>
   </div>
-
+ 
   <!-- ══ CARACTÉRISTIQUES DU BIEN ════════════════════════════ -->
   ${bienItems ? `<div class="section">
     <div class="sec-title">Caractéristiques du bien</div>
     <div class="bien-grid">${bienItems}</div>
     ${bien?.points_forts ? `<div class="points-box">${bien.points_forts}</div>` : ''}
   </div>` : ''}
-
+ 
   <!-- ══ MARCHÉ LOCAL — DVF ═══════════════════════════════════ -->
   <div class="section">
     <div class="sec-title">Marché local · Données DVF officielles</div>
@@ -748,13 +757,13 @@ th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
       </div>
     </div>` : ''}
   </div>
-
+ 
   <!-- ══ ANALYSE IA ════════════════════════════════════════════ -->
   <div class="section">
     <div class="sec-title">Analyse &amp; Recommandations · Intelligence Artificielle</div>
     <div class="synthese">${syntheseHtml}</div>
   </div>
-
+ 
   <!-- ══ TRANSACTIONS DVF ══════════════════════════════════════ -->
   <div class="section">
     <div class="sec-title">Transactions de référence · ${stats.nb || 0} ventes dans un rayon de 300m</div>
@@ -770,7 +779,7 @@ th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
       Données officielles des transactions notariées. Période : ${stats.periode || '—'}.
     </div>
   </div>
-
+ 
   <!-- ══ FOOTER ════════════════════════════════════════════════ -->
   <div class="footer">
     <div class="footer-brand">Lead<em>Flow</em> · Mandat</div>
@@ -779,18 +788,18 @@ th:nth-child(6), td:nth-child(6) { width: 20%; } /* Rue */
       Données DVF · ${now_str}
     </div>
   </div>
-
+ 
 </div><!-- /page -->
-
+ 
 <!-- Bouton impression — masqué à l'impression -->
 <button class="print-btn no-print" onclick="window.print()">
   🖨&nbsp; Imprimer / Enregistrer en PDF
 </button>
-
+ 
 </body>
 </html>`;
 
-  // 2. ENVOYER LA RÉPONSE (C'est ce qui manque !)
+  // 2. ENVOYER LA RÉPONSE
   res.send(html);
 
   } catch(e) {
