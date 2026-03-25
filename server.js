@@ -15,49 +15,132 @@ app.use((req, res, next) => {
 });
 
 // ── LEADS ────────────────────────────────────────────────────
-
-// n8n envoie un lead ici
+// Le dashboard attend plusieurs champs JSON :
+// notes, history, emailStatus, emailText, sendHistory
+// On utilise des colonnes JSONB en base pour stocker ces objets
+ 
+// n8n ou le formulaire manuel envoie un lead ici
 app.post('/webhook/lead', async (req, res) => {
   const l = req.body;
   try {
+    const id   = l.id || Date.now().toString();
+    // 'time' = heure d'arrivée affichée dans le dashboard (HH:MM:SS)
+    const time = new Date().toLocaleTimeString('fr-FR', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      timeZone: 'Europe/Paris'
+    });
+ 
     await pool.query(`
-      INSERT INTO leads (id, prenom, nom, email, tel, bien, ville, source,
-        projet, message, score, score_raison, statut, email_bienvenue, relance_j2, relance_j7)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'new',$13,$14,$15)
+      INSERT INTO leads (
+        id, prenom, nom, email, tel, bien, ville, source,
+        projet, message, score, score_raison, status,
+        email_bienvenue, relance_j2, relance_j7,
+        time, notes, history, email_status, email_text, send_history
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'new',$13,$14,$15,
+              $16, '', '[]'::jsonb, '{"j0":"auto_sent","j2":"pending","j7":"pending"}'::jsonb,
+              '{}'::jsonb, '[]'::jsonb)
       ON CONFLICT (id) DO NOTHING
     `, [
-      l.id || Date.now().toString(),
+      id,
       l.prenom, l.nom, l.email, l.tel,
-      l.bien, l.ville, l.source, l.projet, l.message,
+      l.bien, l.ville || '', l.source, l.projet, l.message,
       l.score, l.score_raison,
-      l.email_bienvenue, l.relance_j2, l.relance_j7
+      l.email_bienvenue || '', l.relance_j2 || '', l.relance_j7 || '',
+      time
     ]);
-    res.json({ status: 'ok' });
+ 
+    console.log(`[LEADS] Nouveau lead : ${l.prenom} ${l.nom} — score: ${l.score}`);
+    res.json({ status: 'ok', id });
   } catch(e) {
-    console.error(e);
+    console.error('[LEADS] Erreur INSERT :', e.message);
     res.status(500).json({ error: e.message });
   }
 });
-
+ 
 // Dashboard leads récupère tous les leads
+// On retourne 'status' (pas 'statut') et on mappe les colonnes JSON
 app.get('/api/leads', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC');
-    res.json(result.rows);
+    const result = await pool.query(`
+      SELECT
+        id, prenom, nom, email, tel, bien, ville, source,
+        projet, message, score, score_raison,
+        status,                          -- dashboard attend 'status'
+        email_bienvenue, relance_j2, relance_j7,
+        time, notes,
+        COALESCE(history,    '[]'::jsonb)   AS history,
+        COALESCE(email_status, '{"j0":"auto_sent","j2":"pending","j7":"pending"}'::jsonb) AS "emailStatus",
+        COALESCE(email_text,   '{}'::jsonb) AS "emailText",
+        COALESCE(send_history, '[]'::jsonb) AS "sendHistory",
+        created_at
+      FROM leads
+      ORDER BY created_at DESC
+    `);
+ 
+    // emailContent est construit depuis les colonnes email_bienvenue/relance_j2/j7
+    // Le dashboard l'attend sous forme d'objet { j0, j2, j7 }
+    const rows = result.rows.map(r => ({
+      ...r,
+      emailContent: {
+        j0: r.email_bienvenue || '',
+        j2: r.relance_j2      || '',
+        j7: r.relance_j7      || '',
+      }
+    }));
+ 
+    res.json(rows);
   } catch(e) {
+    console.error('[LEADS] Erreur GET :', e.message);
     res.status(500).json({ error: e.message });
   }
 });
-
-// Mettre à jour le statut d'un lead
+ 
+// PATCH — met à jour n'importe quel champ patchable
+// Le dashboard envoie : status, notes, history, emailStatus, emailText, sendHistory
 app.patch('/api/leads/:id', async (req, res) => {
+  const { id } = req.params;
+  const data   = req.body;
+ 
+  // Mapping champs dashboard → colonnes PostgreSQL
+  const fieldMap = {
+    status:      'status',
+    notes:       'notes',
+    history:     'history',
+    emailStatus: 'email_status',
+    emailText:   'email_text',
+    sendHistory: 'send_history',
+  };
+ 
   try {
+    const setClauses = [];
+    const values     = [];
+    let   idx        = 1;
+ 
+    for (const [key, col] of Object.entries(fieldMap)) {
+      if (data[key] !== undefined) {
+        const val = typeof data[key] === 'object'
+          ? JSON.stringify(data[key])  // JSONB
+          : data[key];                  // TEXT
+        setClauses.push(`${col} = $${idx}`);
+        values.push(val);
+        idx++;
+      }
+    }
+ 
+    if (!setClauses.length) {
+      return res.status(400).json({ error: 'Aucun champ à mettre à jour' });
+    }
+ 
+    values.push(id);
     await pool.query(
-      'UPDATE leads SET statut = $1 WHERE id = $2',
-      [req.body.statut, req.params.id]
+      `UPDATE leads SET ${setClauses.join(', ')} WHERE id = $${idx}`,
+      values
     );
+ 
     res.json({ status: 'updated' });
   } catch(e) {
+    console.error('[LEADS] Erreur PATCH :', e.message);
     res.status(500).json({ error: e.message });
   }
 });
