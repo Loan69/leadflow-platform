@@ -171,18 +171,18 @@
     <!-- Adresse — sert au géocodage GPS et à la requête DVF en base -->
     <div class="field">
       <label>Adresse <span class="label-hint">— numéro et rue</span></label>
-      <input type="text" id="adresse" placeholder="12 rue de la République">
+      <input type="text" id="adresse" placeholder="12 rue de la République" value="13 rue Gustave Nadaud">
     </div>
     <div class="row-2">
       <!-- Code postal — évite les ambiguïtés (ex: rue Pasteur existe dans 200 villes) -->
       <div class="field">
         <label>Code postal</label>
-        <input type="text" id="code_postal" placeholder="69001" maxlength="5">
+        <input type="text" id="code_postal" placeholder="69001" maxlength="5" value="69007">
       </div>
       <!-- Ville — complète le géocodage pour une précision maximale -->
       <div class="field">
         <label>Ville</label>
-        <input type="text" id="ville" placeholder="Lyon">
+        <input type="text" id="ville" placeholder="Lyon" value="Lyon">
       </div>
     </div>
 
@@ -202,12 +202,12 @@
       <!-- Surface — permet de calculer le prix au m² et de comparer au marché -->
       <div class="field">
         <label>Surface <span class="label-hint">m²</span></label>
-        <input type="number" id="surface" placeholder="75" min="5" max="2000">
+        <input type="number" id="surface" placeholder="75" min="5" max="2000" value="90">
       </div>
       <!-- Nombre de pièces — enrichit le profil du bien pour l'IA -->
       <div class="field">
         <label>Pièces</label>
-        <input type="number" id="pieces" placeholder="3" min="1" max="20">
+        <input type="number" id="pieces" placeholder="3" min="1" max="20" value="4">
       </div>
     </div>
 
@@ -215,7 +215,7 @@
       <!-- Étage — argument de vente ou facteur de décote -->
       <div class="field">
         <label>Étage</label>
-        <input type="text" id="etage" placeholder="3ème / RDC">
+        <input type="text" id="etage" placeholder="3ème / RDC" value="7ème">
       </div>
       <!-- DPE — facteur de plus en plus déterminant sur les prix depuis 2022 -->
       <div class="field">
@@ -248,7 +248,10 @@
     <!-- Points forts — éléments différenciants à mettre en avant dans le rapport -->
     <div class="field">
       <label>Points forts du bien <span class="label-hint">— terrasse, parking, vue, calme…</span></label>
-      <textarea id="points_forts" placeholder="Ex : terrasse 15m², parking privatif, vue dégagée sur parc, immeuble Haussmannien, cave"></textarea>
+      <textarea id="points_forts" placeholder="Ex : terrasse 15m², parking privatif, vue dégagée sur parc, immeuble Haussmannien, cave" value="Dernier étage
+      Terrasse avec vue de 40m2
+      2 places de parkings privatives en souterrain
+      Dernière étage"></textarea>
     </div>
 
     <!-- ════════════════════════════════════════════════════════
@@ -284,7 +287,7 @@
     <!-- Nom du propriétaire — permet à Claude de personnaliser la conclusion -->
     <div class="field">
       <label>Nom du propriétaire <span class="label-hint">— pour personnaliser le rapport</span></label>
-      <input type="text" id="proprietaire" placeholder="M. et Mme Dupont">
+      <input type="text" id="proprietaire" placeholder="M. et Mme Dupont" value="M. Dervillers">
     </div>
 
     <!-- ════════════════════════════════════════════════════════
@@ -295,11 +298,11 @@
     <div class="row-2">
       <div class="field">
         <label>Nom de l'agence</label>
-        <input type="text" id="agence" placeholder="Orpi Lyon 6e">
+        <input type="text" id="agence" placeholder="Orpi Lyon 6e" value="Orpi Lyon 7 Sud">
       </div>
       <div class="field">
         <label>Nom de l'agent</label>
-        <input type="text" id="agent" placeholder="Jean Martin">
+        <input type="text" id="agent" placeholder="Jean Martin" value="Jean Martin">
       </div>
     </div>
 
