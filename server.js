@@ -331,6 +331,8 @@ app.post('/api/synthese', async (req, res) => {
     const prompt = `Tu es un expert en estimation immobilière.
 Tu dois rédiger la partie analyse de marché d'un dossier de prise de mandat
 pour un agent immobilier qui va rencontrer un propriétaire vendeur.
+IMPORTANT : Ne commence JAMAIS par un titre ou une introduction. 
+    Démarre DIRECTEMENT par la balise ===MARCHE===.
  
 Bien concerné : ${bienType || 'appartement'} de ${bienSurface || '?'}m²
 situé au ${adresse}
@@ -371,7 +373,8 @@ ${motifVente ? `Tiens compte du motif de vente : ${motifVente}.` : ''}
 Termine par un message de réassurance sur la maîtrise du marché local.]
  
 Ton : professionnel, rassurant, factuel.
-Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.`;
+Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.
+Respecte strictement les balises ===TAG=== sans ajouter de texte avant ou après le rapport.`;
  
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -394,34 +397,28 @@ Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.
     console.log(`[MANDAT][SYNTHESE] Analyse rédigée (${raw.length} caractères)`);
  
     // Parse les 4 blocs délimités par ===TAG===
-    // Regex tolérante : espaces autour du tag, majuscules/minuscules, accents
-    const extract = (tag) => {
-      // Accepte : ===MARCHE===, === MARCHE ===, ===Marche===, ===MARCHÉ===
-      const re = new RegExp(
-        `===\s*${tag}\s*===\s*([\s\S]*?)(?===\s*(?:MARCHE|MARCHÉ|ESTIMATION|FACTEURS|RECOMMANDATION)\s*===|$)`,
-        'i'
-      );
-      const m = raw.match(re);
-      return m ? m[1].trim() : '';
+    const extract = (tagRegex) => {
+      // On cherche le tag et on prend tout jusqu'au prochain tag ou la fin
+      const regex = new RegExp(`===\\s*${tagRegex}\\s*===\\s*([\\s\\S]*?)(?====|$)`, 'i');
+      const match = raw.match(regex);
+      return match ? match[1].trim() : '';
     };
- 
+    
     const blocs = {
-      marche:         extract('MARCH[EÉ]') || extract('MARCHE') || extract('MARCH'),
+      marche:         extract('MARCH[EÉ]'),
       estimation:     extract('ESTIMATION'),
-      facteurs:       extract('FACTEURS?') || extract('FACTEUR'),
-      recommandation: extract('RECOMMANDATION') || extract('RECOMMANDATIONS'),
+      facteurs:       extract('FACTEURS?'),
+      recommandation: extract('RECOMMANDATION[S]?'),
     };
- 
-    // Si le parsing échoue (Claude n'a pas respecté le format),
-    // on retourne le texte brut — le PDF utilisera le fallback marked.parse()
-    const blocsValides = Object.values(blocs).some(b => b.length > 10);
-    console.log(`[MANDAT][SYNTHESE] Blocs parsés : ${blocsValides ? 'OK' : 'FALLBACK texte brut'}`);
-    if (!blocsValides) {
-      console.log('[MANDAT][SYNTHESE] Texte brut reçu :', raw.slice(0, 200));
-    }
- 
+    
+    // On vérifie si on a au moins capturé 2 blocs pour valider le format
+    const nbBlocsTrouves = Object.values(blocs).filter(b => b.length > 10).length;
+    const blocsValides = nbBlocsTrouves >= 2;
+    
+    console.log(`[MANDAT][SYNTHESE] Blocs détectés : ${nbBlocsTrouves}/4`);
+    
     res.json({
-      synthese: raw,      // texte brut complet — fallback dans /api/pdf
+      synthese: raw,
       blocs: blocsValides ? blocs : null
     });
  
