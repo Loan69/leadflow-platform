@@ -344,24 +344,32 @@ Données de marché réelles (transactions des 24 derniers mois dans un rayon de
 Exemples de transactions récentes :
 ${transactionsText || 'Aucune transaction trouvée dans ce rayon.'}
  
-Rédige une synthèse professionnelle en 4 paragraphes en prose fluide (pas de listes, pas de titres avec #, pas de **gras**) :
+Rédige la synthèse en 4 blocs bien séparés. Respecte EXACTEMENT ce format :
  
-Paragraphe 1 — Description du marché local : décris le dynamisme du marché avec les chiffres réels.
-Ton factuel et précis, cite les prix médians et la fourchette.
+===MARCHE===
+[Paragraphe en prose de 3-4 phrases sur le dynamisme du marché local.
+Cite les chiffres réels : prix médian, fourchette, nombre de transactions, période.]
  
-Paragraphe 2 — Positionnement du bien : estime la valeur de ce bien dans ce marché.
+===ESTIMATION===
+[Paragraphe en prose de 3-4 phrases sur la valeur estimée de ce bien précis.
 ${bienSurface ? `Fourchette réaliste : entre ${estBas}€ et ${estHau}€, valeur médiane estimée à ${estMed}€.` : 'Positionne le bien par rapport aux transactions récentes.'}
-${bienPrixDemande ? `Le propriétaire demande ${parseInt(bienPrixDemande).toLocaleString('fr')}€ — compare avec le marché et conseille.` : ''}
+${bienPrixDemande ? `Le propriétaire demande ${parseInt(bienPrixDemande).toLocaleString('fr')}€ — compare avec le marché et conseille franchement.` : ''}]
  
-Paragraphe 3 — Facteurs de valorisation : cite les éléments qui peuvent faire varier le prix
-(étage, état, exposition, DPE, points forts spécifiques de ce bien).
+===FACTEURS===
+[Liste exactement 4 à 6 facteurs qui influencent le prix de CE bien.
+Format strict : un facteur par ligne, séparé par | comme ceci :
+Facteur | Impact | Explication courte
+Exemple :
+DPE ${bienDpe || 'C'} | ${bienDpe === 'A' || bienDpe === 'B' ? '+3 à +8%' : bienDpe === 'E' || bienDpe === 'F' || bienDpe === 'G' ? '-5 à -15%' : 'Neutre'} | ${bienDpe === 'A' || bienDpe === 'B' ? 'Très recherché, argument fort post-2022' : 'Impact modéré sur le prix'}
+Adapte les facteurs aux informations connues du bien.]
  
-Paragraphe 4 — Recommandation : donne un prix de mise en marché précis et explique la stratégie.
+===RECOMMANDATION===
+[Paragraphe en prose de 3-4 phrases avec un prix de mise en marché précis et la stratégie.
 ${proprietaireNom ? `Adresse-toi directement à ${proprietaireNom}.` : ''}
 ${motifVente ? `Tiens compte du motif de vente : ${motifVente}.` : ''}
-Termine par un message de réassurance sur ta maîtrise du marché local.
+Termine par un message de réassurance sur la maîtrise du marché local.]
  
-Ton : professionnel, rassurant, factuel. Phrases complètes. Pas de bullet points.
+Ton : professionnel, rassurant, factuel.
 Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.`;
  
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -381,9 +389,26 @@ Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.
     const claudeData = await claudeRes.json();
     if (!claudeRes.ok) throw new Error(claudeData.error?.message || 'Erreur API Claude');
  
-    const synthese = claudeData.content[0].text;
-    console.log(`[MANDAT][SYNTHESE] Analyse rédigée (${synthese.length} caractères)`);
-    res.json({ synthese });
+    const raw = claudeData.content[0].text;
+    console.log(`[MANDAT][SYNTHESE] Analyse rédigée (${raw.length} caractères)`);
+ 
+    // Parse les 4 blocs délimités par ===TAG===
+    // Permet au /api/pdf de les traiter différemment (tableau pour FACTEURS)
+    const extract = (tag) => {
+      const re = new RegExp(`===${tag}===\s*([\s\S]*?)(?====|$)`, 'i');
+      const m  = raw.match(re);
+      return m ? m[1].trim() : '';
+    };
+ 
+    res.json({
+      synthese: raw, // texte brut complet en fallback
+      blocs: {
+        marche:          extract('MARCHE'),
+        estimation:      extract('ESTIMATION'),
+        facteurs:        extract('FACTEURS'),
+        recommandation:  extract('RECOMMANDATION'),
+      }
+    });
  
   } catch(e) {
     console.error('[MANDAT][SYNTHESE] Erreur :', e.message);
@@ -396,28 +421,91 @@ Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.
 // Stratégie marges : pas de @page margin:0 — on utilise un .page centré
 // avec padding interne, comme pour la pige. Rendu propre sans config impression.
 app.post('/api/pdf', async (req, res) => {
-  const { adresse, stats, transactions, synthese, agence, bien } = req.body;
+  const { adresse, stats, transactions, synthese, blocs, agence, bien } = req.body;
  
   try {
     console.log(`[MANDAT][PDF] Génération du rapport pour : ${adresse}`);
  
     const now_str = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
  
-    // ── Conversion Markdown → HTML via marked ───────────────
-    // marked est installé (npm install marked) et gère tous les cas
-    // proprement : titres, gras, listes, paragraphes
+    // ── Conversion Markdown → HTML via marked ──────────────
     const { marked } = require('marked');
-    const syntheseHtml = marked.parse(synthese || '');
+ 
+    // Construit les 4 sections avec titres si les blocs sont disponibles
+    // Sinon fallback sur le texte brut
+    let syntheseHtml = '';
+    if (blocs && (blocs.marche || blocs.estimation || blocs.facteurs || blocs.recommandation)) {
+ 
+      // Section 1 — Le marché local
+      if (blocs.marche) {
+        syntheseHtml += `
+          <h3 class="bloc-titre">Le marché local</h3>
+          <div class="synthese-prose">${marked.parse(blocs.marche)}</div>`;
+      }
+ 
+      // Section 2 — Estimation de valeur
+      if (blocs.estimation) {
+        syntheseHtml += `
+          <h3 class="bloc-titre">Estimation de valeur</h3>
+          <div class="synthese-prose">${marked.parse(blocs.estimation)}</div>`;
+      }
+ 
+      // Section 3 — Facteurs distinctifs en tableau
+      if (blocs.facteurs) {
+        const lignesFact = blocs.facteurs
+          .split('\n')
+          .map(l => l.trim())
+          .filter(l => l.includes('|') && !l.startsWith('Facteur')) // skip header
+          .map(l => {
+            const parts = l.split('|').map(p => p.trim());
+            const impact = parts[1] || '';
+            const couleur = impact.startsWith('+') ? '#2a8a60'
+                          : impact.startsWith('-') ? '#c84040'
+                          : '#8a8478';
+            return `<tr>
+              <td style="font-weight:500;color:#1c1a16">${parts[0] || ''}</td>
+              <td style="font-weight:700;color:${couleur}">${impact}</td>
+              <td style="color:#4a4640">${parts[2] || ''}</td>
+            </tr>`;
+          }).join('');
+ 
+        if (lignesFact) {
+          syntheseHtml += `
+            <h3 class="bloc-titre">Facteurs distinctifs du bien</h3>
+            <table class="fact-table">
+              <thead><tr>
+                <th>Facteur</th>
+                <th>Impact estimé</th>
+                <th>Explication</th>
+              </tr></thead>
+              <tbody>${lignesFact}</tbody>
+            </table>`;
+        }
+      }
+ 
+      // Section 4 — Recommandation
+      if (blocs.recommandation) {
+        syntheseHtml += `
+          <h3 class="bloc-titre">Recommandation</h3>
+          <div class="synthese-prose">${marked.parse(blocs.recommandation)}</div>`;
+      }
+ 
+    } else {
+      // Fallback — texte brut complet converti en HTML
+      syntheseHtml = marked.parse(synthese || '');
+    }
  
     // ── Lignes tableau DVF ────────────────────────────────────
     const lignes = transactions.slice(0, 15).map(t => `
       <tr>
-        <td>${String(t.date_mutation || '').slice(0,7) || '—'}</td>
+        <td>${t.date_mutation || '—'}</td>
         <td>${t.type_local || '—'}</td>
         <td>${t.surface || '—'} m²</td>
         <td>${parseInt(t.prix || 0).toLocaleString('fr-FR')} €</td>
         <td><strong>${Math.round(t.prix_m2 || 0).toLocaleString('fr-FR')} €/m²</strong></td>
-        <td style="color:#8a8478;font-size:10px">${t.adresse || '—'}</td>
+        <td style="color:#8a8478;font-size:10px">
+          ${[t.code_postal, t.ville].filter(Boolean).join(' ') || '—'}
+        </td>
       </tr>`).join('');
  
     // ── Caractéristiques du bien ──────────────────────────────
@@ -605,6 +693,40 @@ body {
 .synthese ul { padding-left: 16px; margin: 6px 0 11px; }
 .synthese li { margin-bottom: 4px; }
  
+/* ── TITRES DE BLOCS ── */
+.bloc-titre {
+  font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+  color: #b8893a; font-weight: 700; font-family: 'Figtree', sans-serif;
+  margin: 20px 0 10px; padding-bottom: 6px;
+  border-bottom: 1px solid rgba(184,137,58,.25);
+  display: flex; align-items: center; gap: 8px;
+}
+.bloc-titre::before { content: ''; display: inline-block; width: 3px; height: 12px; background: #b8893a; border-radius: 2px; }
+.synthese-prose p { margin-bottom: 10px; font-size: 11.5px; color: #4a4640; line-height: 1.75; font-weight: 300; }
+ 
+/* ── TABLEAU FACTEURS DISTINCTIFS ── */
+.fact-table {
+  width: 100%; border-collapse: collapse; font-size: 10.5px;
+  margin: 10px 0 6px; table-layout: fixed;
+}
+.fact-table th {
+  background: #f0ebe0 !important;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  padding: 8px 10px; text-align: left;
+  font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #b8893a; font-weight: 700;
+  border-bottom: 2px solid #b8893a;
+}
+.fact-table th:nth-child(1) { width: 28%; }
+.fact-table th:nth-child(2) { width: 20%; }
+.fact-table th:nth-child(3) { width: 52%; }
+.fact-table tbody tr:nth-child(even) {
+  background: #f7f4ee !important;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.fact-table td { padding: 7px 10px; border-bottom: 1px solid #ede8df; vertical-align: middle; }
+.fact-table tr:last-child td { border-bottom: none; }
+ 
 /* ── TABLE DVF — CSS robuste à l'impression ──
    Pas de background sombre sur les th : les navigateurs l'ignorent souvent
    On utilise une bordure dorée en bas + texte doré sur fond crème à la place */
@@ -770,7 +892,7 @@ th:nth-child(6), td:nth-child(6) { width: 25%; }
     ${lignes ? `<table>
       <thead><tr>
         <th>Date</th><th>Type</th><th>Surface</th>
-        <th>Prix de vente</th><th>Prix / m²</th><th>Rue</th>
+        <th>Prix de vente</th><th>Prix / m²</th><th>Localisation</th>
       </tr></thead>
       <tbody>${lignes}</tbody>
     </table>` : '<p style="color:#9a9180;font-style:italic;font-size:11px;padding:8px 0">Aucune transaction DVF dans ce secteur.</p>'}
