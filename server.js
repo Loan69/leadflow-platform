@@ -258,7 +258,8 @@ app.post('/api/analyse', async (req, res) => {
     // Récupération des transactions DVF dans un rayon ~300m (0.003 degré ≈ 300m)
     const rayon = 0.003;
     const result = await pool.query(`
-      SELECT adresse, prix, surface, prix_m2, type_local, TO_CHAR(date_mutation, 'YYYY-MM') as date_mutation, nb_pieces
+      SELECT adresse, code_postal, ville, prix, surface, prix_m2, type_local,
+             TO_CHAR(date_mutation, 'YYYY-MM') AS date_mutation, nb_pieces
       FROM dvf
       WHERE lat BETWEEN $1 AND $2
         AND lon BETWEEN $3 AND $4
@@ -393,21 +394,35 @@ Le propriétaire doit comprendre que l'agent maîtrise parfaitement son marché.
     console.log(`[MANDAT][SYNTHESE] Analyse rédigée (${raw.length} caractères)`);
  
     // Parse les 4 blocs délimités par ===TAG===
-    // Permet au /api/pdf de les traiter différemment (tableau pour FACTEURS)
+    // Regex tolérante : espaces autour du tag, majuscules/minuscules, accents
     const extract = (tag) => {
-      const re = new RegExp(`===${tag}===\s*([\s\S]*?)(?====|$)`, 'i');
-      const m  = raw.match(re);
+      // Accepte : ===MARCHE===, === MARCHE ===, ===Marche===, ===MARCHÉ===
+      const re = new RegExp(
+        `===\s*${tag}\s*===\s*([\s\S]*?)(?===\s*(?:MARCHE|MARCHÉ|ESTIMATION|FACTEURS|RECOMMANDATION)\s*===|$)`,
+        'i'
+      );
+      const m = raw.match(re);
       return m ? m[1].trim() : '';
     };
  
+    const blocs = {
+      marche:         extract('MARCH[EÉ]') || extract('MARCHE') || extract('MARCH'),
+      estimation:     extract('ESTIMATION'),
+      facteurs:       extract('FACTEURS?') || extract('FACTEUR'),
+      recommandation: extract('RECOMMANDATION') || extract('RECOMMANDATIONS'),
+    };
+ 
+    // Si le parsing échoue (Claude n'a pas respecté le format),
+    // on retourne le texte brut — le PDF utilisera le fallback marked.parse()
+    const blocsValides = Object.values(blocs).some(b => b.length > 10);
+    console.log(`[MANDAT][SYNTHESE] Blocs parsés : ${blocsValides ? 'OK' : 'FALLBACK texte brut'}`);
+    if (!blocsValides) {
+      console.log('[MANDAT][SYNTHESE] Texte brut reçu :', raw.slice(0, 200));
+    }
+ 
     res.json({
-      synthese: raw, // texte brut complet en fallback
-      blocs: {
-        marche:          extract('MARCHE'),
-        estimation:      extract('ESTIMATION'),
-        facteurs:        extract('FACTEURS'),
-        recommandation:  extract('RECOMMANDATION'),
-      }
+      synthese: raw,      // texte brut complet — fallback dans /api/pdf
+      blocs: blocsValides ? blocs : null
     });
  
   } catch(e) {
@@ -436,18 +451,21 @@ app.post('/api/pdf', async (req, res) => {
     let syntheseHtml = '';
     if (blocs && (blocs.marche || blocs.estimation || blocs.facteurs || blocs.recommandation)) {
  
+      // Nettoie les balises === résiduelles dans chaque bloc
+      const clean = (txt) => (txt || '').replace(/===\s*\w+\s*===/g, '').trim();
+ 
       // Section 1 — Le marché local
       if (blocs.marche) {
         syntheseHtml += `
           <h3 class="bloc-titre">Le marché local</h3>
-          <div class="synthese-prose">${marked.parse(blocs.marche)}</div>`;
+          <div class="synthese-prose">${marked.parse(clean(blocs.marche))}</div>`;
       }
  
       // Section 2 — Estimation de valeur
       if (blocs.estimation) {
         syntheseHtml += `
           <h3 class="bloc-titre">Estimation de valeur</h3>
-          <div class="synthese-prose">${marked.parse(blocs.estimation)}</div>`;
+          <div class="synthese-prose">${marked.parse(clean(blocs.estimation))}</div>`;
       }
  
       // Section 3 — Facteurs distinctifs en tableau
@@ -487,12 +505,16 @@ app.post('/api/pdf', async (req, res) => {
       if (blocs.recommandation) {
         syntheseHtml += `
           <h3 class="bloc-titre">Recommandation</h3>
-          <div class="synthese-prose">${marked.parse(blocs.recommandation)}</div>`;
+          <div class="synthese-prose">${marked.parse(clean(blocs.recommandation))}</div>`;
       }
  
     } else {
-      // Fallback — texte brut complet converti en HTML
-      syntheseHtml = marked.parse(synthese || '');
+      // Fallback — texte brut converti en HTML
+      // On nettoie au passage les éventuelles balises ===TAG=== résiduelles
+      const propre = (synthese || '')
+        .replace(/===\s*\w+\s*===/g, '')  // supprime les balises non parsées
+        .trim();
+      syntheseHtml = marked.parse(propre);
     }
  
     // ── Lignes tableau DVF ────────────────────────────────────
