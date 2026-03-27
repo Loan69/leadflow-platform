@@ -818,40 +818,62 @@
             } else {
                 // Mode production — appelle les APIs réelles
                 try {
-                // Leads
-                const leadsRes = await fetch(`${CONFIG.prod.api}/api/leads`);
-                const leads    = await leadsRes.json();
-                // Pige
-                const pigeRes  = await fetch(`${CONFIG.prod.api}/api/pige/biens`);
-                const biens    = await pigeRes.json();
-                // Construit les métriques depuis les vraies données
+                const [leadsRes, pigeRes, statsRes, emailsRes] = await Promise.all([
+                    fetch(`${CONFIG.prod.api}/api/leads`),
+                    fetch(`${CONFIG.prod.api}/api/pige/biens`),
+                    fetch(`${CONFIG.prod.api}/api/stats`),
+                    fetch(`${CONFIG.prod.api}/api/emails`),
+                ]);
+                const leads  = await leadsRes.json();
+                const biens  = await pigeRes.json();
+                const stats  = await statsRes.json();
+                const emails = await emailsRes.json();
+
+                const contacted = leads.filter(l => l.status !== 'new').length;
+                const rate      = leads.length > 0 ? Math.round(contacted / leads.length * 100) : 0;
+
                 const metrics = {
                     leads: {
-                    today:   leads.filter(l => isToday(l.date)).length,
-                    pending: leads.filter(l => l.statut === 'new').length,
-                    rate:    leads.length > 0 ? Math.round(leads.filter(l => l.statut !== 'new').length / leads.length * 100) + '%' : '—'
+                    today:   leads.filter(l => isToday(l.created_at)).length,
+                    pending: leads.filter(l => l.status === 'new').length,
+                    rate:    leads.length > 0 ? rate + '%' : '—'
                     },
+                    mail: {
+                    total:   emails.length,
+                    auto:    emails.filter(e => e.statut !== 'pending').length,
+                    pending: stats.emails_pending || 0
+                    },
+                    mandat: { total: stats.mandats_total || 0, week: '—', dept: '69' },
                     pige: {
                     total: biens.length,
                     fort:  biens.filter(b => b.potentiel === 'fort').length,
                     sent:  biens.filter(b => b.statut === 'sent' || b.statut === 'contact').length
                     },
-                    mail:   { total: '—', auto: '—', pending: '—' },
-                    mandat: { total: '—', week: '—', dept: '69'   }
                 };
                 applyMetrics(metrics);
                 updateBadges(metrics);
+
+                // Stats globales
+                const pigeSent = metrics.pige.sent;
+                document.getElementById('gs-rate-val').textContent = rate;
+                document.getElementById('gs-bar').style.width      = rate + '%';
+                document.getElementById('gs-leads-total').textContent = stats.leads_total || leads.length;
+                document.getElementById('gs-biens').textContent       = biens.length;
+                document.getElementById('gs-mails-sent').textContent  = pigeSent;
+                document.getElementById('gs-mandats').textContent     = stats.mandats_total || 0;
+
                 // Activité synthétique depuis les vraies données
+                const fmtTime = d => d ? new Date(d).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '—';
                 const activity = [
                     ...leads.slice(0, 3).map(l => ({
                     tool: 'leads', ico: 'ai-leads', icon: '📊',
                     text: `<strong>Lead</strong> — ${l.prenom || ''} ${l.nom || ''} via ${l.source || 'plateforme'}`,
-                    time: l.date || '—'
+                    time: fmtTime(l.created_at)
                     })),
                     ...biens.slice(0, 3).map(b => ({
                     tool: 'pige', ico: 'ai-pige', icon: '🔍',
                     text: `<strong>Bien analysé</strong> — ${b.titre || b.adresse || '—'}`,
-                    time: b.date || '—'
+                    time: fmtTime(b.created_at)
                     })),
                 ];
                 renderActivity(activity);
