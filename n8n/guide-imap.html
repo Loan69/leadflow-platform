@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>LeadFlow — Guide configuration IMAP n8n</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Figtree:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --cream:  #f7f4ee;
+    --cream2: #f0ebe0;
+    --cream3: #e8e0d0;
+    --white:  #ffffff;
+    --ink:    #1c1a16;
+    --ink2:   #2e2b24;
+    --ink3:   #4a4640;
+    --muted:  #8a8478;
+    --pale:   #b8b0a0;
+    --gold:   #b8893a;
+    --gold2:  #d4a853;
+    --gold3:  #f0cc7a;
+    --green:  #2a8a60;
+    --green2: #40aa80;
+    --red:    #c84040;
+    --orange: #c87020;
+    --blue:   #3a70c8;
+    --border: #e0d8c8;
+    --border2:#d0c8b8;
+  }
+
+  html { font-size: 13px; }
+  body {
+    font-family: 'Figtree', Helvetica, Arial, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    line-height: 1.6;
+  }
+
+  /* ── PAGE LAYOUT ── */
+  .page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 0 60px;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--ink);
+    padding: 28px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-mark {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--gold), var(--gold2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; color: white;
+  }
+  .logo-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 24px; font-weight: 400;
+    color: var(--cream);
+  }
+  .logo-name em { font-style: italic; color: var(--gold2); }
+  .header-title {
+    font-size: 11px;
+    color: rgba(247,244,238,.45);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── INTRO SECTION ── */
+  .section { padding: 0 40px; margin-bottom: 32px; }
+
+  .intro-box {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+  .intro-box h2 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 20px; font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 12px;
+  }
+  .intro-box p { color: var(--ink3); margin-bottom: 8px; }
+  .intro-box p:last-child { margin-bottom: 0; }
+
+  /* ── N8N FIELDS BLOCK ── */
+  .n8n-fields {
+    background: var(--ink2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+  .n8n-fields h3 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 17px; font-weight: 400;
+    color: var(--gold2);
+    margin-bottom: 16px;
+    letter-spacing: .3px;
+  }
+  .n8n-field-row {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .n8n-field-row:last-child { border-bottom: none; }
+  .n8n-field-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 11.5px;
+    color: var(--gold3);
+    min-width: 170px;
+    flex-shrink: 0;
+  }
+  .n8n-field-desc { font-size: 12px; color: rgba(247,244,238,.55); }
+  .n8n-field-example {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: rgba(247,244,238,.8);
+    background: rgba(255,255,255,.06);
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  /* ── SECTION TITLE ── */
+  .section-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 22px; font-weight: 400;
+    color: var(--ink);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    letter-spacing: -.2px;
+  }
+  .section-title span {
+    font-size: 13px;
+    font-family: 'Figtree', sans-serif;
+    font-weight: 400;
+    color: var(--muted);
+    margin-left: 10px;
+  }
+
+  /* ── PROVIDER CARD ── */
+  .provider-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .provider-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .provider-header {
+    padding: 14px 18px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .provider-logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .provider-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .provider-name {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+  .provider-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 5px;
+  }
+  .badge-warning { background: rgba(200,112,32,.12); color: var(--orange); }
+  .badge-ok      { background: rgba(42,138,96,.12);  color: var(--green);  }
+  .badge-info    { background: rgba(58,112,200,.12);  color: var(--blue);   }
+
+  .provider-body { padding: 14px 18px; }
+  .field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--cream3);
+    font-size: 12px;
+  }
+  .field-row:last-of-type { border-bottom: none; }
+  .field-label { color: var(--muted); }
+  .field-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink2);
+    background: var(--cream);
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: -.2px;
+  }
+  .field-value.port { color: var(--blue); }
+  .field-value.tls-yes { color: var(--green); }
+
+  .provider-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+  .note-warning { background: rgba(200,112,32,.08); color: var(--orange); border-left: 3px solid var(--orange); }
+  .note-info    { background: rgba(58,112,200,.08);  color: var(--blue);   border-left: 3px solid var(--blue);   }
+  .note-ok      { background: rgba(42,138,96,.08);  color: var(--green);  border-left: 3px solid var(--green);  }
+
+  /* ── FULL-WIDTH CARD ── */
+  .provider-card-full {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .provider-card-full .provider-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 32px;
+  }
+
+  /* ── STEPS ── */
+  .steps {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .steps h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .step:last-child { margin-bottom: 0; }
+  .step-num {
+    width: 22px; height: 22px;
+    background: var(--gold);
+    color: var(--white);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-text { font-size: 12.5px; color: var(--ink3); line-height: 1.6; }
+  .step-text strong { color: var(--ink); }
+  .step-text code {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: var(--cream);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink2);
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 32px 40px;
+  }
+
+  /* ── TIPS BOX ── */
+  .tips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+  }
+  .tip-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .tip-icon { font-size: 20px; margin-bottom: 8px; }
+  .tip-title { font-weight: 600; font-size: 12.5px; margin-bottom: 6px; color: var(--ink); }
+  .tip-text { font-size: 11.5px; color: var(--ink3); line-height: 1.55; }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--ink);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 40px;
+  }
+  .footer-left { font-size: 11px; color: rgba(247,244,238,.35); letter-spacing: .5px; }
+  .footer-right { font-size: 11px; color: var(--gold); font-weight: 500; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: white; }
+    .page { max-width: 100%; }
+    .header, .footer { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .provider-card, .n8n-fields, .intro-box, .steps, .tip-card {
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      break-inside: avoid;
+    }
+    .provider-grid { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="logo">
+      <div class="logo-mark">✦</div>
+      <div class="logo-name">Lead<em>Flow</em></div>
+    </div>
+    <div class="header-title">Guide — Trigger IMAP n8n</div>
+  </div>
+
+  <!-- INTRO -->
+  <div class="section">
+    <div class="intro-box">
+      <h2>Surveillance de boite mail avec n8n</h2>
+      <p>Le nœud <strong>Email Trigger (IMAP)</strong> de n8n interroge une boite mail à intervalle régulier et déclenche le workflow dès qu'un email non lu est détecté. Il marque automatiquement l'email comme lu pour éviter tout retraitement.</p>
+      <p>Pour le workflow LeadFlow, configurer ce trigger sur la boite mail qui reçoit les demandes de contact de tes clients (ex : <code style="font-family:'DM Mono',monospace;font-size:11px;background:var(--cream2);padding:1px 5px;border-radius:3px">contact@agence.com</code>).</p>
+    </div>
+
+    <!-- N8N CREDENTIAL FIELDS -->
+    <div class="n8n-fields">
+      <h3>Champs à remplir dans n8n — Credential "IMAP"</h3>
+      <div class="n8n-field-row">
+        <span class="n8n-field-name">Host</span>
+        <span class="n8n-field-desc">Serveur IMAP de l'opérateur</span>
+        <span class="n8n-field-example">imap.gmail.com</span>
+      </div>
+      <div class="n8n-field-row">
+        <span class="n8n-field-name">Port</span>
+        <span class="n8n-field-desc">Toujours 993 (SSL/TLS)</span>
+        <span class="n8n-field-example">993</span>
+      </div>
+      <div class="n8n-field-row">
+        <span class="n8n-field-name">User</span>
+        <span class="n8n-field-desc">Adresse email complète</span>
+        <span class="n8n-field-example">contact@agence.com</span>
+      </div>
+      <div class="n8n-field-row">
+        <span class="n8n-field-name">Password</span>
+        <span class="n8n-field-desc">Mot de passe ou mot de passe d'application</span>
+        <span class="n8n-field-example">voir fiche opérateur</span>
+      </div>
+      <div class="n8n-field-row">
+        <span class="n8n-field-name">TLS</span>
+        <span class="n8n-field-desc">Activer systématiquement</span>
+        <span class="n8n-field-example">✅ Activé</span>
+      </div>
+      <div class="n8n-field-row">
+        <span class="n8n-field-name">Allow Unauth. Certs</span>
+        <span class="n8n-field-desc">Uniquement si erreur certificat (OVH mutualisé)</span>
+        <span class="n8n-field-example">⬜ Désactivé par défaut</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROVIDERS -->
+  <div class="section">
+    <div class="section-title">Paramètres par opérateur <span>Tous avec port 993 + SSL/TLS</span></div>
+
+    <!-- GMAIL + MICROSOFT -->
+    <div class="provider-grid">
+
+      <!-- GMAIL -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#fce8e6">📧</div>
+            <div>
+              <div class="provider-name">Gmail</div>
+              <div class="provider-sub">Google Workspace inclus</div>
+            </div>
+          </div>
+          <span class="badge badge-warning">App Password</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.gmail.com</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@gmail.com</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe d'appli</span>
+          </div>
+          <div class="provider-note note-warning">
+            ⚠️ La double authentification (2FA) doit être activée sur le compte Google pour générer un mot de passe d'application.
+          </div>
+        </div>
+      </div>
+
+      <!-- MICROSOFT 365 / OUTLOOK -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#e3f2fd">📘</div>
+            <div>
+              <div class="provider-name">Microsoft 365</div>
+              <div class="provider-sub">Outlook.com · Hotmail</div>
+            </div>
+          </div>
+          <span class="badge badge-warning">App Password</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">outlook.office365.com</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@outlook.com</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe d'appli</span>
+          </div>
+          <div class="provider-note note-warning">
+            ⚠️ IMAP doit être activé dans Outlook (Paramètres → Courrier → Synchronisation). Nécessite aussi la 2FA pour les mots de passe d'application.
+          </div>
+        </div>
+      </div>
+
+      <!-- OVH -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#e8f5e9">🌐</div>
+            <div>
+              <div class="provider-name">OVH / OVHcloud</div>
+              <div class="provider-sub">Mutualisé · MX Plan · Pro</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">ssl0.ovh.net</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@domaine.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe email</span>
+          </div>
+          <div class="provider-note note-info">
+            ℹ️ En cas d'erreur certificat, activer "Allow Unauthorized Certs" dans n8n. Pour OVH Pro/Exchange : utiliser <code style="font-family:'DM Mono',monospace;font-size:10px">ex.mail.ovh.net</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- INFOMANIAK -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#e8f5e9">🟢</div>
+            <div>
+              <div class="provider-name">Infomaniak</div>
+              <div class="provider-sub">Mail · kMail</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">mail.infomaniak.com</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@domaine.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe email</span>
+          </div>
+          <div class="provider-note note-ok">
+            ✅ Configuration simple, mot de passe direct. Infomaniak recommande de créer un mot de passe dédié par service dans Manager → Sécurité.
+          </div>
+        </div>
+      </div>
+
+      <!-- IONOS -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#e3f2fd">🔵</div>
+            <div>
+              <div class="provider-name">IONOS (1&1)</div>
+              <div class="provider-sub">Mail · Business</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.ionos.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@domaine.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe email</span>
+          </div>
+          <div class="provider-note note-ok">
+            ✅ Pour les comptes sur domaine propre hébergés chez IONOS, utiliser <code style="font-family:'DM Mono',monospace;font-size:10px">imap.ionos.com</code> si .fr ne fonctionne pas.
+          </div>
+        </div>
+      </div>
+
+      <!-- YAHOO -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#f3e5f5">🟣</div>
+            <div>
+              <div class="provider-name">Yahoo Mail</div>
+              <div class="provider-sub">yahoo.fr · yahoo.com</div>
+            </div>
+          </div>
+          <span class="badge badge-warning">App Password</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.mail.yahoo.com</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@yahoo.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe d'appli</span>
+          </div>
+          <div class="provider-note note-warning">
+            ⚠️ Yahoo n'accepte plus les mots de passe classiques pour les apps tierces. Générer un mot de passe d'application dans Sécurité du compte Yahoo.
+          </div>
+        </div>
+      </div>
+
+      <!-- ORANGE -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#fff3e0">🟠</div>
+            <div>
+              <div class="provider-name">Orange</div>
+              <div class="provider-sub">orange.fr · wanadoo.fr</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.orange.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@orange.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe email</span>
+          </div>
+          <div class="provider-note note-info">
+            ℹ️ Wanadoo.fr utilise le même serveur. Vérifier que l'accès IMAP est activé dans les paramètres du compte Orange.
+          </div>
+        </div>
+      </div>
+
+      <!-- SFR -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#fce4ec">🔴</div>
+            <div>
+              <div class="provider-name">SFR</div>
+              <div class="provider-sub">sfr.fr · neuf.fr</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.sfr.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@sfr.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe email</span>
+          </div>
+          <div class="provider-note note-info">
+            ℹ️ Pour les adresses @neuf.fr, le host reste <code style="font-family:'DM Mono',monospace;font-size:10px">imap.sfr.fr</code>. Activer IMAP dans Préférences mail SFR si nécessaire.
+          </div>
+        </div>
+      </div>
+
+      <!-- FREE -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#e8eaf6">⚫</div>
+            <div>
+              <div class="provider-name">Free / Freebox</div>
+              <div class="provider-sub">free.fr · aliceadsl.fr</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.free.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@free.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe Freebox</span>
+          </div>
+          <div class="provider-note note-info">
+            ℹ️ Le mot de passe est celui du compte Freebox (espace abonné free.fr). Pour @aliceadsl.fr, même host.
+          </div>
+        </div>
+      </div>
+
+      <!-- Bouygues -->
+      <div class="provider-card">
+        <div class="provider-header">
+          <div class="provider-logo">
+            <div class="provider-icon" style="background:#e8f5e9">🟦</div>
+            <div>
+              <div class="provider-name">Bouygues / Bbox</div>
+              <div class="provider-sub">bbox.fr · cegetel.net</div>
+            </div>
+          </div>
+          <span class="badge badge-ok">Mot de passe direct</span>
+        </div>
+        <div class="provider-body">
+          <div class="field-row">
+            <span class="field-label">Host</span>
+            <span class="field-value">imap.bbox.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Port</span>
+            <span class="field-value port">993</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">TLS</span>
+            <span class="field-value tls-yes">Oui</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">User</span>
+            <span class="field-value">adresse@bbox.fr</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">Password</span>
+            <span class="field-value">Mot de passe email</span>
+          </div>
+          <div class="provider-note note-info">
+            ℹ️ Pour @cegetel.net : host <code style="font-family:'DM Mono',monospace;font-size:10px">imap.cegetel.net</code> port 993.
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /provider-grid -->
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- STEP BY STEP: GMAIL -->
+  <div class="section">
+    <div class="section-title">Procédures détaillées <span>Cas nécessitant un mot de passe d'application</span></div>
+
+    <div class="steps">
+      <h4>📧 Gmail — Créer un mot de passe d'application</h4>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Aller sur <strong>myaccount.google.com</strong> → <strong>Sécurité</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Vérifier que la <strong>Validation en 2 étapes est activée</strong> (obligatoire pour la suite)</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Dans la barre de recherche du compte Google, taper <code>mots de passe des applications</code> et ouvrir le résultat</div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Saisir un nom (ex : <code>n8n LeadFlow</code>), cliquer <strong>Créer</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text">Copier le mot de passe de 16 caractères généré → le coller dans le champ <strong>Password</strong> du credential IMAP n8n</div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-text">Dans Gmail → <strong>Paramètres → Voir tous les paramètres → Transfert et POP/IMAP</strong> → vérifier que <strong>IMAP est activé</strong></div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <h4>📘 Microsoft 365 / Outlook.com — Créer un mot de passe d'application</h4>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Aller sur <strong>account.microsoft.com</strong> → <strong>Sécurité → Options de sécurité avancées</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Activer la <strong>Vérification en deux étapes</strong> si ce n'est pas fait</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Dans la section <strong>Mots de passe d'application</strong>, cliquer <strong>Créer un nouveau mot de passe d'application</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Copier le mot de passe généré → champ <strong>Password</strong> dans n8n</div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-text">Dans Outlook Web → <strong>Paramètres → Courrier → Synchronisation → POP et IMAP</strong> → activer IMAP si nécessaire</div>
+      </div>
+    </div>
+
+    <div class="steps">
+      <h4>🟣 Yahoo — Créer un mot de passe d'application</h4>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-text">Aller sur <strong>login.yahoo.com</strong> → icône compte → <strong>Sécurité du compte</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-text">Activer la <strong>Validation en deux étapes</strong></div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-text">Cliquer <strong>Générer le mot de passe d'application</strong> → nommer-le <code>n8n</code></div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-text">Copier le mot de passe → champ <strong>Password</strong> dans n8n</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- TIPS -->
+  <div class="section">
+    <div class="section-title">Conseils & résolution de problèmes</div>
+    <div class="tips-grid">
+      <div class="tip-card">
+        <div class="tip-icon">📁</div>
+        <div class="tip-title">Surveiller un sous-dossier</div>
+        <div class="tip-text">Dans le nœud n8n, le champ <strong>Mailbox</strong> accepte n'importe quel chemin : <code style="font-family:'DM Mono',monospace;font-size:10px">INBOX/Leads</code>. Utile pour filtrer les emails via une règle de messagerie avant que n8n ne les traite.</div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">⏱️</div>
+        <div class="tip-title">Fréquence de polling</div>
+        <div class="tip-text">Par défaut configuré à <strong>5 minutes</strong> dans le workflow LeadFlow. Réduire à 1 minute pour les leads urgents, ou augmenter à 15 minutes pour économiser les exécutions (plan gratuit n8n limité).</div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🔐</div>
+        <div class="tip-title">Erreur certificat TLS</div>
+        <div class="tip-text">Si n8n retourne une erreur <code style="font-family:'DM Mono',monospace;font-size:10px">UNABLE_TO_VERIFY_LEAF_SIGNATURE</code>, activer <strong>Allow Unauthorized Certs</strong> dans le credential. Courant sur les serveurs OVH mutualisés.</div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">🚫</div>
+        <div class="tip-title">Authentification refusée</div>
+        <div class="tip-text">Pour Gmail, Microsoft et Yahoo : le mot de passe du compte ne fonctionnera pas — il faut impérativement un <strong>mot de passe d'application</strong> dédié à n8n.</div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">📬</div>
+        <div class="tip-title">Boite dédiée recommandée</div>
+        <div class="tip-text">Créer une adresse spécifique (ex : <code style="font-family:'DM Mono',monospace;font-size:10px">leads@agence.com</code>) et configurer une règle de redirection depuis la boite principale. Évite les faux positifs et les emails personnels traités par erreur.</div>
+      </div>
+      <div class="tip-card">
+        <div class="tip-icon">✅</div>
+        <div class="tip-title">Tester la connexion</div>
+        <div class="tip-text">Dans n8n, après avoir rempli le credential, cliquer <strong>"Test"</strong> (bouton dans la modal). Un message vert <em>"Connection tested successfully"</em> confirme que tout est correct avant d'activer le workflow.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">LEADFLOW PLATFORM — GUIDE IMAP</div>
+    <div class="footer-right">leadflow-platform · n8n/guide-imap.html</div>
+  </div>
+
+</div>
+</body>
+</html>
