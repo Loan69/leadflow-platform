@@ -1,0 +1,93 @@
+{
+  "name": "LeadFlow - Source SweepBright",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 15 }]
+        }
+      },
+      "id": "sb-0001",
+      "name": "Schedule - Toutes les 15 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.sweepbright.com/v1/contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "Bearer {{ $vars.SWEEPBRIGHT_API_KEY }}" },
+            { "name": "Accept", "value": "application/json" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "status", "value": "new" },
+            { "name": "created_after", "value": "={{ new Date(Date.now() - 20 * 60 * 1000).toISOString() }}" },
+            { "name": "per_page", "value": "50" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sb-0002",
+      "name": "SweepBright - Récupérer Nouveaux Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// SweepBright retourne { data: [...contacts] }\nconst response = $input.first().json;\nconst contacts = response.data || response.contacts || response || [];\n\nif (!Array.isArray(contacts) || contacts.length === 0) {\n  return [];\n}\n\nreturn contacts.map(c => {\n  // Adapter selon la structure réelle de l'API SweepBright\n  const firstName = c.first_name || c.firstName || '';\n  const lastName  = c.last_name  || c.lastName  || '';\n  const email     = c.email || (c.emails && c.emails[0]?.address) || '';\n  const phone     = c.phone || c.mobile || (c.phones && c.phones[0]?.number) || '';\n\n  // Propriété d'intérêt (premier bien de la liste si plusieurs)\n  const prop = (c.properties_of_interest && c.properties_of_interest[0]) || c.property || {};\n  const bien = prop.type ? `${prop.type} ${prop.bedrooms ? prop.bedrooms + ' ch.' : ''}`.trim() : '';\n  const ville = prop.city || prop.location || '';\n\n  // Message / notes\n  const message = c.notes || c.message || c.description || '';\n\n  return {\n    json: {\n      id: 'sb_' + (c.id || c.uuid || String(Date.now())),\n      prenom: firstName,\n      nom: lastName,\n      email,\n      tel: phone,\n      bien,\n      ville,\n      source: 'sweepbright',\n      projet: c.project_type || c.interest_type || '',\n      message\n    }\n  };\n});"
+      },
+      "id": "sb-0003",
+      "name": "Normaliser Contacts SweepBright",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $vars.N8N_WEBHOOK_BASE }}/webhook/leadflow-traitement",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "sb-0004",
+      "name": "Envoyer au Workflow Principal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300]
+    }
+  ],
+  "connections": {
+    "Schedule - Toutes les 15 min": {
+      "main": [[{ "node": "SweepBright - Récupérer Nouveaux Contacts", "type": "main", "index": 0 }]]
+    },
+    "SweepBright - Récupérer Nouveaux Contacts": {
+      "main": [[{ "node": "Normaliser Contacts SweepBright", "type": "main", "index": 0 }]]
+    },
+    "Normaliser Contacts SweepBright": {
+      "main": [[{ "node": "Envoyer au Workflow Principal", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "pinData": {}
+}
