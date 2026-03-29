@@ -51,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const claudeResponse = $input.first().json;\nconst lead = $('Construire Prompt Claude').first().json;\n\n// Extraire le texte de la réponse Claude\nconst rawText = claudeResponse.content?.[0]?.text || '';\n\n// Parser le JSON retourné par Claude\nlet parsed;\ntry {\n  const cleaned = rawText.replace(/```json\\s*/g, '').replace(/```\\s*/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  throw new Error('Parse Claude impossible. Réponse : ' + rawText.substring(0, 300));\n}\n\nif (!parsed.score || !parsed.temperature || !parsed.email_bienvenue) {\n  throw new Error('Réponse Claude incomplète : ' + JSON.stringify(parsed).substring(0, 200));\n}\n\n// Convertir texte en HTML lisible\nfunction toHtml(text) {\n  if (!text) return '<p></p>';\n  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  return '<div style=\"font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#333;\">'\n    + '<p>' + escaped.replace(/\\n\\n+/g, '</p><p>').replace(/\\n/g, '<br>') + '</p>'\n    + '</div>';\n}\n\n// Variables d'environnement n8n\nconst agentName   = $vars.AGENT_NAME   || 'Votre agence';\nconst agentEmail  = $vars.AGENT_EMAIL  || 'contact@agence.com';\nconst senderEmail = $vars.SENDER_EMAIL || agentEmail;\n\nconst fullName = [lead.prenom, lead.nom].filter(Boolean).join(' ') || lead.email;\nconst temp = (parsed.temperature || 'froid').toLowerCase();\nconst tempLabel = temp === 'chaud' ? '🔥 CHAUD' : temp === 'tiede' ? '🌤️ TIÈDE' : '❄️ FROID';\n\nconst subjects = parsed.email_subjects || {};\nconst j0Subject = subjects.j0 || 'Votre demande immobilière';\nconst j2Subject = subjects.j2 || 'Un suivi sur votre projet';\nconst j7Subject = subjects.j7 || 'Toujours disponible pour vous';\n\nconst sender = { name: agentName, email: senderEmail };\nconst leadRecipient = [{ email: lead.email, name: fullName }];\n\n// Payloads Brevo pré-construits (JSON strings) réutilisés après les Wait nodes\nconst brevoJ0 = JSON.stringify({\n  sender, to: leadRecipient,\n  subject: j0Subject,\n  htmlContent: toHtml(parsed.email_bienvenue)\n});\n\nconst brevoJ2 = JSON.stringify({\n  sender, to: leadRecipient,\n  subject: j2Subject,\n  htmlContent: toHtml(parsed.relance_j2)\n});\n\nconst brevoJ7 = JSON.stringify({\n  sender, to: leadRecipient,\n  subject: j7Subject,\n  htmlContent: toHtml(parsed.relance_j7)\n});\n\n// Email récapitulatif agent\nconst scoreColor = parsed.score >= 80 ? '#22c55e' : parsed.score >= 50 ? '#f59e0b' : '#6b7280';\nconst agentHtml = `<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto\">\n  <h2 style=\"color:#1e40af;border-bottom:2px solid #e2e8f0;padding-bottom:8px\">Nouveau lead — ${tempLabel}</h2>\n  <table style=\"width:100%;border-collapse:collapse;margin-bottom:20px\">\n    <tr style=\"background:#f8fafc\"><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold;width:35%\">Nom</td><td style=\"padding:10px;border:1px solid #e2e8f0\">${fullName}</td></tr>\n    <tr><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Email</td><td style=\"padding:10px;border:1px solid #e2e8f0\"><a href=\"mailto:${lead.email}\">${lead.email}</a></td></tr>\n    <tr style=\"background:#f8fafc\"><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Téléphone</td><td style=\"padding:10px;border:1px solid #e2e8f0\">${lead.tel || 'N/A'}</td></tr>\n    <tr><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Bien</td><td style=\"padding:10px;border:1px solid #e2e8f0\">${lead.bien || 'N/A'}</td></tr>\n    <tr style=\"background:#f8fafc\"><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Ville</td><td style=\"padding:10px;border:1px solid #e2e8f0\">${lead.ville || 'N/A'}</td></tr>\n    <tr><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Projet</td><td style=\"padding:10px;border:1px solid #e2e8f0\">${lead.projet || 'N/A'}</td></tr>\n    <tr style=\"background:#f8fafc\"><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Source</td><td style=\"padding:10px;border:1px solid #e2e8f0\">${lead.source || 'N/A'}</td></tr>\n    <tr><td style=\"padding:10px;border:1px solid #e2e8f0;font-weight:bold\">Score IA</td><td style=\"padding:10px;border:1px solid #e2e8f0\"><strong style=\"color:${scoreColor}\">${parsed.score}/100</strong><br><em>${parsed.score_raison}</em></td></tr>\n  </table>\n  <h3 style=\"color:#374151\">Message du lead</h3>\n  <div style=\"background:#f8fafc;padding:15px;border-left:4px solid #3b82f6;border-radius:4px\">${(lead.message||'Aucun message').replace(/\\n/g,'<br>')}</div>\n  <p style=\"color:#9ca3af;font-size:12px;margin-top:20px\">Email J0 envoyé · Relances J2 et J7 planifiées automatiquement</p>\n</div>`;\n\nconst brevoAgent = JSON.stringify({\n  sender,\n  to: [{ email: agentEmail, name: agentName }],\n  subject: `[LeadFlow] Lead ${tempLabel} — ${fullName} (${parsed.score}/100)`,\n  htmlContent: agentHtml\n});\n\n// Payload LeadFlow (pour enregistrement en base)\nconst leadflowPayload = JSON.stringify({\n  id: lead.id || String(Date.now()),\n  prenom: lead.prenom || '',\n  nom: lead.nom || '',\n  email: lead.email || '',\n  tel: lead.tel || '',\n  bien: lead.bien || '',\n  ville: lead.ville || '',\n  source: lead.source || '',\n  projet: lead.projet || '',\n  message: lead.message || '',\n  score: parsed.score,\n  score_raison: parsed.score_raison,\n  email_bienvenue: parsed.email_bienvenue,\n  relance_j2: parsed.relance_j2,\n  relance_j7: parsed.relance_j7\n});\n\nreturn [{\n  json: {\n    id: lead.id || String(Date.now()),\n    email: lead.email,\n    prenom: lead.prenom,\n    nom: lead.nom,\n    score: parsed.score,\n    temperature: temp,\n    // Payloads pré-construits (réutilisés après Wait nodes)\n    _leadflow: leadflowPayload,\n    _brevo_j0: brevoJ0,\n    _brevo_j2: brevoJ2,\n    _brevo_j7: brevoJ7,\n    _brevo_agent: brevoAgent\n  }\n}];"
+        "jsCode": "const claudeResponse = $input.first().json;\nconst lead = $('Construire Prompt Claude').first().json;\n\nconst rawText = claudeResponse.content?.[0]?.text || '';\nlet parsed;\ntry {\n  const cleaned = rawText.replace(/```json\\s*/g, '').replace(/```\\s*/g, '').trim();\n  parsed = JSON.parse(cleaned);\n} catch(e) {\n  throw new Error('Parse Claude impossible. Réponse : ' + rawText.substring(0, 300));\n}\n\nif (!parsed.score || !parsed.temperature || !parsed.email_bienvenue) {\n  throw new Error('Réponse Claude incomplète : ' + JSON.stringify(parsed).substring(0, 200));\n}\n\n// ── Palette dashboard ──────────────────────────────────────\nconst COLORS = {\n  ink:     '#1c1a16',\n  cream:   '#f7f4ee',\n  cream2:  '#f0ebe0',\n  white:   '#ffffff',\n  gold:    '#b8893a',\n  gold2:   '#d4a853',\n  muted:   '#8a8478',\n  border:  '#e0d8c8',\n  green:   '#2a8a60',\n  red:     '#c84040',\n};\n\n// ── Construire un email HTML aux couleurs LeadFlow ─────────\nfunction buildEmail(bodyText, agentName, agentEmail) {\n  if (!bodyText) return '';\n  // Convertir le texte en paragraphes HTML\n  const escaped = bodyText\n    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n  const paragraphs = escaped\n    .split(/\\n\\n+/)\n    .map(p => `<p style=\"margin:0 0 16px 0;color:${COLORS.ink};line-height:1.7\">${p.replace(/\\n/g, '<br>')}</p>`)\n    .join('');\n\n  return `<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n  <link href=\"https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Figtree:wght@300;400;500;600&display=swap\" rel=\"stylesheet\">\n</head>\n<body style=\"margin:0;padding:0;background:${COLORS.cream};font-family:'Figtree',Helvetica,Arial,sans-serif;\">\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:${COLORS.cream};\">\n    <tr><td align=\"center\" style=\"padding:32px 16px\">\n      <table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%\">\n\n        <!-- HEADER -->\n        <tr><td style=\"background:${COLORS.ink};border-radius:12px 12px 0 0;padding:20px 32px;\">\n          <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n            <tr>\n              <td style=\"vertical-align:middle\">\n                <table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\">\n                  <tr>\n                    <td style=\"background:linear-gradient(135deg,${COLORS.gold},${COLORS.gold2});border-radius:8px;width:32px;height:32px;text-align:center;vertical-align:middle;font-size:14px;color:${COLORS.white};\">✦</td>\n                    <td style=\"padding-left:10px;font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:400;color:${COLORS.cream};letter-spacing:-.2px\">\n                      Lead<em style=\"font-style:italic;color:${COLORS.gold2}\">Flow</em>\n                    </td>\n                  </tr>\n                </table>\n              </td>\n            </tr>\n          </table>\n        </td></tr>\n\n        <!-- BODY -->\n        <tr><td style=\"background:${COLORS.white};padding:36px 40px;border-left:1px solid ${COLORS.border};border-right:1px solid ${COLORS.border};\">\n          ${paragraphs}\n        </td></tr>\n\n        <!-- CTA -->\n        <tr><td style=\"background:${COLORS.white};padding:0 40px 32px;border-left:1px solid ${COLORS.border};border-right:1px solid ${COLORS.border};text-align:center\">\n          <a href=\"mailto:${agentEmail}\" style=\"display:inline-block;background:${COLORS.gold};color:${COLORS.white};text-decoration:none;padding:12px 28px;border-radius:8px;font-family:'Figtree',Helvetica,Arial,sans-serif;font-weight:600;font-size:14px;letter-spacing:.3px\">Répondre à votre conseiller</a>\n        </td></tr>\n\n        <!-- FOOTER -->\n        <tr><td style=\"background:${COLORS.cream2};border:1px solid ${COLORS.border};border-radius:0 0 12px 12px;padding:20px 32px;text-align:center\">\n          <p style=\"margin:0;color:${COLORS.muted};font-size:11px;letter-spacing:.5px\">${agentName} &nbsp;·&nbsp; Propulsé par <span style=\"color:${COLORS.gold};font-weight:500\">LeadFlow</span></p>\n        </td></tr>\n\n      </table>\n    </td></tr>\n  </table>\n</body>\n</html>`;\n}\n\n// ── Infos agent ────────────────────────────────────────────\nconst agentName   = $vars.AGENT_NAME   || 'Votre agence';\nconst agentEmail  = $vars.AGENT_EMAIL  || 'contact@agence.com';\nconst senderEmail = $vars.SENDER_EMAIL || agentEmail;\n\nconst fullName = [lead.prenom, lead.nom].filter(Boolean).join(' ') || lead.email;\nconst temp     = (parsed.temperature || 'froid').toLowerCase();\nconst tempIcon = temp === 'chaud' ? '🔥' : temp === 'tiede' ? '🌤️' : '❄️';\nconst tempLabel = `${tempIcon} ${temp.toUpperCase()}`;\n\nconst subjects  = parsed.email_subjects || {};\nconst j0Subject = subjects.j0 || 'Votre demande immobilière';\nconst j2Subject = subjects.j2 || 'Un suivi sur votre projet';\nconst j7Subject = subjects.j7 || 'Toujours disponible pour vous';\n\nconst sender         = { name: agentName, email: senderEmail };\nconst leadRecipient  = [{ email: lead.email, name: fullName }];\n\n// ── Payloads Brevo (JSON strings, réutilisables après Wait) ─\nconst brevoJ0 = JSON.stringify({\n  sender, to: leadRecipient,\n  subject: j0Subject,\n  htmlContent: buildEmail(parsed.email_bienvenue, agentName, agentEmail)\n});\n\nconst brevoJ2 = JSON.stringify({\n  sender, to: leadRecipient,\n  subject: j2Subject,\n  htmlContent: buildEmail(parsed.relance_j2, agentName, agentEmail)\n});\n\nconst brevoJ7 = JSON.stringify({\n  sender, to: leadRecipient,\n  subject: j7Subject,\n  htmlContent: buildEmail(parsed.relance_j7, agentName, agentEmail)\n});\n\n// ── SMS agent (court, essentiel) ───────────────────────────\nconst msgShort = (lead.message || '').substring(0, 120).replace(/\\n/g, ' ');\nconst smsContent =\n  `[LeadFlow] ${tempLabel}\\n` +\n  `${fullName}\\n` +\n  `${lead.email || ''}${lead.tel ? ' · ' + lead.tel : ''}\\n` +\n  `${lead.bien ? lead.bien + (lead.ville ? ', ' + lead.ville : '') + '\\n' : ''}` +\n  `Score : ${parsed.score}/100 — ${parsed.score_raison}\\n` +\n  (msgShort ? `\"${msgShort}\"` : '');\n\nconst brevoSMS = JSON.stringify({\n  sender: 'LeadFlow',\n  recipient: $vars.AGENT_PHONE,\n  content: smsContent.substring(0, 612)\n});\n\n// ── Payload LeadFlow ───────────────────────────────────────\nconst leadflowPayload = JSON.stringify({\n  id:            lead.id || String(Date.now()),\n  prenom:        lead.prenom || '',\n  nom:           lead.nom || '',\n  email:         lead.email || '',\n  tel:           lead.tel || '',\n  bien:          lead.bien || '',\n  ville:         lead.ville || '',\n  source:        lead.source || '',\n  projet:        lead.projet || '',\n  message:       lead.message || '',\n  score:         parsed.score,\n  score_raison:  parsed.score_raison,\n  email_bienvenue: parsed.email_bienvenue,\n  relance_j2:    parsed.relance_j2,\n  relance_j7:    parsed.relance_j7\n});\n\nreturn [{\n  json: {\n    id:          lead.id || String(Date.now()),\n    email:       lead.email,\n    prenom:      lead.prenom,\n    nom:         lead.nom,\n    score:       parsed.score,\n    temperature: temp,\n    _leadflow:   leadflowPayload,\n    _brevo_j0:   brevoJ0,\n    _brevo_j2:   brevoJ2,\n    _brevo_j7:   brevoJ7,\n    _brevo_sms:  brevoSMS\n  }\n}];"
       },
       "id": "node-0004",
       "name": "Parser Réponse Claude",
@@ -107,22 +107,22 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.brevo.com/v3/smtp/email",
+        "url": "https://api.brevo.com/v3/transactionalSMS/sms",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "api-key", "value": "={{ $vars.BREVO_API_KEY }}" },
+            { "name": "api-key", "value": "="{{ $vars.BREVO_API_KEY }}" },
             { "name": "content-type", "value": "application/json" }
           ]
         },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ $('Parser Réponse Claude').first().json._brevo_agent }}",
+        "body": "={{ $('Parser Réponse Claude').first().json._brevo_sms }}",
         "options": {}
       },
       "id": "node-0007",
-      "name": "Brevo - Résumé Agent",
+      "name": "Brevo - SMS Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1660, 300]
@@ -142,6 +142,40 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.LEADFLOW_URL + '/api/leads/' + $('Parser Réponse Claude').first().json.id }}",
+        "options": {}
+      },
+      "id": "node-0009",
+      "name": "Vérifier Statut Lead (J2)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2140, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "check-j2",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "new",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-0010",
+      "name": "Lead encore nouveau ? (J2)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2380, 300]
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.brevo.com/v3/smtp/email",
         "sendHeaders": true,
@@ -157,11 +191,11 @@
         "body": "={{ $('Parser Réponse Claude').first().json._brevo_j2 }}",
         "options": {}
       },
-      "id": "node-0009",
+      "id": "node-0011",
       "name": "Brevo - Relance J2",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2140, 300]
+      "position": [2620, 200]
     },
     {
       "parameters": {
@@ -170,11 +204,45 @@
         "unit": "days",
         "options": {}
       },
-      "id": "node-0010",
+      "id": "node-0012",
       "name": "Attendre 5 Jours (total J7)",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
-      "position": [2380, 300]
+      "position": [2860, 200]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $vars.LEADFLOW_URL + '/api/leads/' + $('Parser Réponse Claude').first().json.id }}",
+        "options": {}
+      },
+      "id": "node-0013",
+      "name": "Vérifier Statut Lead (J7)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3100, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "check-j7",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "new",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-0014",
+      "name": "Lead encore nouveau ? (J7)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3340, 200]
     },
     {
       "parameters": {
@@ -193,11 +261,11 @@
         "body": "={{ $('Parser Réponse Claude').first().json._brevo_j7 }}",
         "options": {}
       },
-      "id": "node-0011",
+      "id": "node-0015",
       "name": "Brevo - Relance J7",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2620, 300]
+      "position": [3580, 100]
     }
   ],
   "connections": {
@@ -217,19 +285,37 @@
       "main": [[{ "node": "Brevo - Email Bienvenue J0", "type": "main", "index": 0 }]]
     },
     "Brevo - Email Bienvenue J0": {
-      "main": [[{ "node": "Brevo - Résumé Agent", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Brevo - SMS Agent", "type": "main", "index": 0 }]]
     },
-    "Brevo - Résumé Agent": {
+    "Brevo - SMS Agent": {
       "main": [[{ "node": "Attendre 2 Jours", "type": "main", "index": 0 }]]
     },
     "Attendre 2 Jours": {
-      "main": [[{ "node": "Brevo - Relance J2", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Vérifier Statut Lead (J2)", "type": "main", "index": 0 }]]
+    },
+    "Vérifier Statut Lead (J2)": {
+      "main": [[{ "node": "Lead encore nouveau ? (J2)", "type": "main", "index": 0 }]]
+    },
+    "Lead encore nouveau ? (J2)": {
+      "main": [
+        [{ "node": "Brevo - Relance J2", "type": "main", "index": 0 }],
+        []
+      ]
     },
     "Brevo - Relance J2": {
       "main": [[{ "node": "Attendre 5 Jours (total J7)", "type": "main", "index": 0 }]]
     },
     "Attendre 5 Jours (total J7)": {
-      "main": [[{ "node": "Brevo - Relance J7", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Vérifier Statut Lead (J7)", "type": "main", "index": 0 }]]
+    },
+    "Vérifier Statut Lead (J7)": {
+      "main": [[{ "node": "Lead encore nouveau ? (J7)", "type": "main", "index": 0 }]]
+    },
+    "Lead encore nouveau ? (J7)": {
+      "main": [
+        [{ "node": "Brevo - Relance J7", "type": "main", "index": 0 }],
+        []
+      ]
     }
   },
   "settings": {

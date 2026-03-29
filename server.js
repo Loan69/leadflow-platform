@@ -145,6 +145,20 @@ app.patch('/api/leads/:id', async (req, res) => {
   }
 });
 
+// Récupérer un lead par ID (utilisé par n8n pour vérifier le statut avant relance)
+app.get('/api/leads/:id', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, status, prenom, nom, email FROM leads WHERE id = $1',
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: 'Lead introuvable' });
+    res.json(result.rows[0]);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── MAILMIND ─────────────────────────────────────────────────
 
 // n8n envoie un email analysé ici

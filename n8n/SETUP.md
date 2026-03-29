@@ -28,16 +28,17 @@
 
 ## Variables à configurer (Settings → Variables)
 
-| Variable             | Description                                        | Exemple                          |
-|----------------------|----------------------------------------------------|----------------------------------|
-| `ANTHROPIC_API_KEY`  | Clé API Anthropic (Claude)                         | `sk-ant-api03-...`               |
-| `BREVO_API_KEY`      | Clé API Brevo (envoi d'emails)                     | `xkeysib-...`                    |
-| `LEADFLOW_URL`       | URL du backend LeadFlow                            | `https://xxx.railway.app`        |
-| `N8N_WEBHOOK_BASE`   | URL de base de cette instance n8n                  | `https://n8n.exemple.com`        |
-| `AGENT_NAME`         | Nom de l'agent affiché comme expéditeur            | `Sophie Martin`                  |
-| `AGENT_EMAIL`        | Email de l'agent (destinataire résumé + expéditeur)| `sophie@agence.com`              |
-| `SENDER_EMAIL`       | Email expéditeur Brevo (optionnel, = AGENT_EMAIL)  | `noreply@agence.com`             |
-| `SWEEPBRIGHT_API_KEY`| Clé API SweepBright (si applicable)                | `sb_live_...`                    |
+| Variable             | Description                                         | Exemple                          |
+|----------------------|-----------------------------------------------------|----------------------------------|
+| `ANTHROPIC_API_KEY`  | Clé API Anthropic (Claude)                          | `sk-ant-api03-...`               |
+| `BREVO_API_KEY`      | Clé API Brevo — utilisée pour emails ET SMS         | `xkeysib-...`                    |
+| `LEADFLOW_URL`       | URL du backend LeadFlow (sans slash final)          | `https://xxx.railway.app`        |
+| `N8N_WEBHOOK_BASE`   | URL de base de cette instance n8n                   | `https://n8n.exemple.com`        |
+| `AGENT_NAME`         | Nom affiché comme expéditeur email                  | `Sophie Martin`                  |
+| `AGENT_EMAIL`        | Email de l'agent (expéditeur + répondre-à)          | `sophie@agence.com`              |
+| `AGENT_PHONE`        | Numéro de l'agent pour SMS (format E.164)           | `+33612345678`                   |
+| `SENDER_EMAIL`       | Email expéditeur Brevo (optionnel, = AGENT_EMAIL)   | `noreply@agence.com`             |
+| `SWEEPBRIGHT_API_KEY`| Clé API SweepBright (si applicable)                 | `sb_live_...`                    |
 
 ---
 
