@@ -24,10 +24,10 @@
     },
     {
       "parameters": {
-        "jsCode": "const email = $input.first().json;\n\n// Extraire nom/prénom depuis le champ 'From'\nconst fromName  = email.from?.value?.[0]?.name  || '';\nconst fromEmail = email.from?.value?.[0]?.address || email.from?.text || '';\n\nconst parts  = fromName.trim().split(/\\s+/);\nconst prenom = parts[0]  || '';\nconst nom    = parts.slice(1).join(' ') || '';\n\n// Corps : préférer texte brut, sinon nettoyer le HTML\nconst body = email.text\n  || (email.html || '').replace(/<[^>]+>/g, ' ').replace(/\\s{2,}/g, ' ').trim();\n\n// Message-ID comme clé de déduplication\nconst msgId = (email.messageId || '').replace(/[<>]/g, '') || String(Date.now());\n\nreturn [{\n  json: {\n    id: 'imap_' + msgId,\n    prenom,\n    nom,\n    email: fromEmail,\n    tel: '',\n    bien: '',\n    ville: '',\n    source: 'email',\n    projet: email.subject || '',\n    message: body.substring(0, 3000)\n  }\n}];"
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir cette valeur avant utilisation\n// ═══════════════════════════════════════════════════════\nconst N8N_WEBHOOK_BASE = 'https://REMPLACER.n8n.cloud'; // URL de ton instance n8n\n// ═══════════════════════════════════════════════════════\n\nconst email = $input.first().json;\n\nconst fromName  = email.from?.value?.[0]?.name  || '';\nconst fromEmail = email.from?.value?.[0]?.address || email.from?.text || '';\n\nconst parts  = fromName.trim().split(/\\s+/);\nconst prenom = parts[0]  || '';\nconst nom    = parts.slice(1).join(' ') || '';\n\nconst body = email.text\n  || (email.html || '').replace(/<[^>]+>/g, ' ').replace(/\\s{2,}/g, ' ').trim();\n\nconst msgId = (email.messageId || '').replace(/[<>]/g, '') || String(Date.now());\n\nreturn [{\n  json: {\n    id: 'imap_' + msgId,\n    prenom,\n    nom,\n    email: fromEmail,\n    tel: '',\n    bien: '',\n    ville: '',\n    source: 'email',\n    projet: email.subject || '',\n    message: body.substring(0, 3000),\n    _webhookUrl: N8N_WEBHOOK_BASE + '/webhook/leadflow-traitement'\n  }\n}];"
       },
       "id": "imap-0002",
-      "name": "Normaliser Email en Lead",
+      "name": "⚙️ Config + Normaliser Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [480, 300]
@@ -35,7 +35,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{ $vars.N8N_WEBHOOK_BASE }}/webhook/leadflow-traitement",
+        "url": "={{ $json._webhookUrl }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -45,7 +45,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
-        "body": "={{ JSON.stringify($json) }}",
+        "body": "={{ JSON.stringify({ id: $json.id, prenom: $json.prenom, nom: $json.nom, email: $json.email, tel: $json.tel, bien: $json.bien, ville: $json.ville, source: $json.source, projet: $json.projet, message: $json.message }) }}",
         "options": {}
       },
       "id": "imap-0003",
@@ -57,9 +57,9 @@
   ],
   "connections": {
     "IMAP - Surveiller Boite Mail": {
-      "main": [[{ "node": "Normaliser Email en Lead", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "⚙️ Config + Normaliser Email", "type": "main", "index": 0 }]]
     },
-    "Normaliser Email en Lead": {
+    "⚙️ Config + Normaliser Email": {
       "main": [[{ "node": "Envoyer au Workflow Principal", "type": "main", "index": 0 }]]
     }
   },
