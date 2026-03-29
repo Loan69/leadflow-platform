@@ -24,13 +24,23 @@
     },
     {
       "parameters": {
-        "jsCode": "// ═══════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir cette valeur avant utilisation\n// ═══════════════════════════════════════════════════════\nconst N8N_WEBHOOK_BASE = 'https://REMPLACER.n8n.cloud'; // URL de ton instance n8n\n// ═══════════════════════════════════════════════════════\n\nconst email = $input.first().json;\n\nconst fromName  = email.from?.value?.[0]?.name  || '';\nconst fromEmail = email.from?.value?.[0]?.address || email.from?.text || '';\n\nconst parts  = fromName.trim().split(/\\s+/);\nconst prenom = parts[0]  || '';\nconst nom    = parts.slice(1).join(' ') || '';\n\nconst body = email.text\n  || (email.html || '').replace(/<[^>]+>/g, ' ').replace(/\\s{2,}/g, ' ').trim();\n\nconst msgId = (email.messageId || '').replace(/[<>]/g, '') || String(Date.now());\n\nreturn [{\n  json: {\n    id: 'imap_' + msgId,\n    prenom,\n    nom,\n    email: fromEmail,\n    tel: '',\n    bien: '',\n    ville: '',\n    source: 'email',\n    projet: email.subject || '',\n    message: body.substring(0, 3000),\n    _webhookUrl: N8N_WEBHOOK_BASE + '/webhook/leadflow-traitement'\n  }\n}];"
+        "jsCode": "const email = $input.first().json;\n\n// ═══════════════════════════════════════════════════════════════\n// 🏠 PLATEFORMES IMMO RECONNUES — Ajouter/retirer selon besoins\n// ═══════════════════════════════════════════════════════════════\nconst PLATFORM_DOMAINS = [\n  // Portails nationaux\n  'seloger.com',\n  'leboncoin.fr',\n  'bienici.com',\n  'logic-immo.com',\n  'pap.fr',\n  'superimmo.com',\n  'ouestfrance-immo.com',\n  'lefigaroimmobilier.com',\n  'meilleurs-agents.com',\n  // Réseaux d'agences\n  'century21.fr',\n  'orpi.com',\n  'laforet.com',\n  'guy-hoquet.com',\n  'era-immobilier.fr',\n  'stéphaneplaza.com',\n  // Autres\n  'bellesdemeures.com',\n  'proprietes-de-france.com',\n  'fnaim.fr',\n];\n\n// Mots-clés dans l'objet email (filet de sécurité si le domaine est inconnu)\nconst SUBJECT_KEYWORDS = [\n  'demande de contact',\n  'nouveau contact',\n  'demande de visite',\n  'vous a envoyé un message',\n  'contact pour votre annonce',\n  'nouvelle demande',\n  'intéressé par votre bien',\n  'a consulté votre annonce',\n  'a pris contact',\n];\n// ═══════════════════════════════════════════════════════════════\n\nconst fromAddr = (\n  email.from?.value?.[0]?.address ||\n  email.from?.text || ''\n).toLowerCase();\n\nconst subject = (email.subject || '').toLowerCase();\n\nconst domainMatch  = PLATFORM_DOMAINS.some(d => fromAddr.includes(d));\nconst subjectMatch = SUBJECT_KEYWORDS.some(kw => subject.includes(kw));\n\nif (!domainMatch && !subjectMatch) {\n  // Email ignoré — pas une plateforme immo reconnue\n  return [];\n}\n\n// Identifier la plateforme source pour le dashboard\nlet source = 'email';\nif (fromAddr.includes('seloger.com'))           source = 'seloger';\nelse if (fromAddr.includes('leboncoin.fr'))      source = 'leboncoin';\nelse if (fromAddr.includes('bienici.com'))       source = 'bienici';\nelse if (fromAddr.includes('logic-immo.com'))    source = 'logic-immo';\nelse if (fromAddr.includes('pap.fr'))            source = 'pap';\nelse if (fromAddr.includes('ouestfrance-immo'))  source = 'ouestfrance-immo';\nelse if (fromAddr.includes('century21'))         source = 'century21';\nelse if (fromAddr.includes('orpi'))              source = 'orpi';\n\n// Passer l'email enrichi au nœud suivant\nreturn [{ json: { ...email, _source: source } }];"
+      },
+      "id": "imap-filter",
+      "name": "🔍 Filtrer Plateformes Immo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir cette valeur avant utilisation\n// ═══════════════════════════════════════════════════════\nconst N8N_WEBHOOK_BASE = 'https://REMPLACER.n8n.cloud';\n// ═══════════════════════════════════════════════════════\n\nconst email = $input.first().json;\n\nconst fromName  = email.from?.value?.[0]?.name  || '';\nconst fromEmail = email.from?.value?.[0]?.address || email.from?.text || '';\n\n// Tenter d'extraire prénom/nom depuis le nom de l'expéditeur\nconst parts  = fromName.trim().split(/\\s+/);\nconst prenom = parts[0]  || '';\nconst nom    = parts.slice(1).join(' ') || '';\n\nconst body = email.text\n  || (email.html || '').replace(/<[^>]+>/g, ' ').replace(/\\s{2,}/g, ' ').trim();\n\nconst msgId = (email.messageId || '').replace(/[<>]/g, '') || String(Date.now());\n\nreturn [{\n  json: {\n    id:      'imap_' + msgId,\n    prenom,\n    nom,\n    email:   fromEmail,\n    tel:     '',\n    bien:    '',\n    ville:   '',\n    source:  email._source || 'email',\n    projet:  email.subject || '',\n    message: body.substring(0, 3000),\n    _webhookUrl: N8N_WEBHOOK_BASE + '/webhook/leadflow-traitement'\n  }\n}];"
       },
       "id": "imap-0002",
       "name": "⚙️ Config + Normaliser Email",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [480, 300]
+      "position": [720, 300]
     },
     {
       "parameters": {
@@ -52,11 +62,14 @@
       "name": "Envoyer au Workflow Principal",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [720, 300]
+      "position": [960, 300]
     }
   ],
   "connections": {
     "IMAP - Surveiller Boite Mail": {
+      "main": [[{ "node": "🔍 Filtrer Plateformes Immo", "type": "main", "index": 0 }]]
+    },
+    "🔍 Filtrer Plateformes Immo": {
       "main": [[{ "node": "⚙️ Config + Normaliser Email", "type": "main", "index": 0 }]]
     },
     "⚙️ Config + Normaliser Email": {
