@@ -111,7 +111,7 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "api-key", "value": "="{{ $vars.BREVO_API_KEY }}" },
+            { "name": "api-key", "value": "={{ $vars.BREVO_API_KEY }}" },
             { "name": "content-type", "value": "application/json" }
           ]
         },
