@@ -40,7 +40,12 @@ app.post('/webhook/lead', async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'new',$13,$14,$15,
               $16, '', '[]'::jsonb, '{"j0":"auto_sent","j2":"pending","j7":"pending"}'::jsonb,
               '{}'::jsonb, '[]'::jsonb)
-      ON CONFLICT (id) DO NOTHING
+      ON CONFLICT (id) DO UPDATE SET
+        email_bienvenue = CASE WHEN EXCLUDED.email_bienvenue <> '' THEN EXCLUDED.email_bienvenue ELSE leads.email_bienvenue END,
+        relance_j2      = CASE WHEN EXCLUDED.relance_j2      <> '' THEN EXCLUDED.relance_j2      ELSE leads.relance_j2      END,
+        relance_j7      = CASE WHEN EXCLUDED.relance_j7      <> '' THEN EXCLUDED.relance_j7      ELSE leads.relance_j7      END,
+        score           = CASE WHEN EXCLUDED.score IS NOT NULL      THEN EXCLUDED.score           ELSE leads.score           END,
+        score_raison    = CASE WHEN EXCLUDED.score_raison <> ''     THEN EXCLUDED.score_raison    ELSE leads.score_raison    END
     `, [
       id,
       l.prenom, l.nom, l.email, l.tel,
