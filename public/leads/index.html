@@ -539,12 +539,40 @@
             const st=stObj(l.status);
             document.getElementById('tab-infos').innerHTML=`<div class="infos-grid"><div class="infos-left"><div><div class="section-title">Informations lead</div><div class="info-grid"><div><div class="info-label">Source</div><div class="info-value">📍 ${l.source}</div></div><div><div class="info-label">Projet</div><div class="info-value">${l.projet}</div></div><div><div class="info-label">Statut</div><div class="info-value"><span class="status-badge ${st.cls}">${st.label}</span></div></div><div><div class="info-label">Arrivée</div><div class="info-value" style="font-family:'DM Mono',monospace;font-size:12px;">${l.time}</div></div></div></div><div><div class="section-title">Bien immobilier</div><div class="prop-card"><div class="prop-icon">🏠</div><div><div class="prop-name">${l.bien}</div><div class="prop-meta">SweepBright · Ref. SW-${Math.floor(Math.random()*90000+10000)}</div></div></div></div>${l.message?`<div><div class="section-title">Message du lead</div><div class="message-box">"${l.message}"</div></div>`:''}<div><div class="section-title">Notes agent</div><textarea class="notes-area" id="note-${l.id}" placeholder="Ajouter une note…">${l.notes||''}</textarea><button class="btn-save-note" onclick="saveNote('${l.id}')">Sauvegarder</button></div></div><div class="infos-right"><div class="section-title">Analyse IA</div><div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;"><div class="score-tag ${sCls(l.score)}" style="display:inline-flex;margin-bottom:10px;">${sLabel(l.score)}</div><div style="font-size:12px;color:var(--text2);line-height:1.7;">${l.score_raison||'Analyse IA basée sur le message et le projet.'}</div></div></div></div>`;
             }
+            // ── Template HTML pour les emails texte brut ─────────────────────────────────
+            // Reproduit le même rendu que buildEmail() dans n8n (même charte graphique)
+            function buildEmailHTML(text, lead) {
+              if (!text) return '';
+              const name = [lead?.prenom, lead?.nom].filter(Boolean).join(' ') || 'Client';
+              const paragraphs = text
+                .split(/\n\n+/)
+                .map(p => `<p style="margin:0 0 16px 0;color:#1c1a16;line-height:1.75;font-size:14.5px">${p.replace(/\n/g,'<br>')}</p>`)
+                .join('');
+              return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f7f4ee;font-family:'Figtree',Helvetica,Arial,sans-serif;}</style>
+</head><body style="padding:32px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+  <tr><td style="background:#1c1a16;border-radius:12px 12px 0 0;padding:18px 32px;">
+    <span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:400;color:#f7f4ee;">
+      Lead<em style="font-style:italic;color:#d4a853;">Flow</em>
+    </span>
+  </td></tr>
+  <tr><td style="background:#ffffff;padding:32px 40px;border-left:1px solid #e0d8c8;border-right:1px solid #e0d8c8;">
+    ${paragraphs}
+  </td></tr>
+  <tr><td style="background:#f0ebe0;border:1px solid #e0d8c8;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
+    <p style="margin:0;color:#9a9180;font-size:11px;letter-spacing:.5px;">Propulsé par <span style="color:#b8893a;font-weight:600;">LeadFlow</span></p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+            }
+
             // ── Onglet Emails IA ──────────────────────────────────────────────────────────
-            // Affiche les 3 emails générés par Claude (J+0, J+2, J+7) avec :
-            //   - Aperçu HTML rendu dans un iframe (rendu visuel fidèle)
-            //   - Éditeur texte brut (sans HTML) pour que l'agent puisse modifier le corps
-            //   - Boutons Envoyer / Ignorer pour J+2 et J+7 (J+0 est déjà envoyé par n8n)
-            //   - Historique des envois manuels
             function renderEmailsTab(id){
             const l=leads.find(x=>x.id===id);if(!l)return;
 
@@ -594,8 +622,9 @@
                 const hist     = l.sendHistory.filter(h=>h.key===e.key); // historique de cet email
                 const rawContent  = l.emailContent[e.key]||'';
                 const hasHTML     = rawContent.trim().startsWith('<');
-                const htmlContent = rawContent;
-                // Texte brut : strip balises si HTML, sinon contenu tel quel
+                // Contenu à injecter dans l'iframe — HTML si disponible, sinon on wrappe le texte
+                const htmlContent = hasHTML ? rawContent : buildEmailHTML(rawContent, l);
+                // Texte brut pour l'éditeur
                 const textContent = l.emailText?.[e.key] ||
                   (hasHTML ? rawContent.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim() : rawContent);
 
@@ -640,13 +669,11 @@
                     <button class="evtab" onclick="switchEV('${e.key}','${id}','edit',this)">Modifier</button>
                     </div>
 
-                    <!-- Aperçu : iframe si HTML, bloc texte si texte brut -->
+                    <!-- Aperçu : toujours un iframe — HTML natif ou texte wrappé dans le template -->
                     <div id="eprev-${e.key}-${id}" class="email-preview-html">
-                    ${hasHTML
+                    ${rawContent
                         ? `<iframe id="iframe-${e.key}-${id}" style="width:100%;border:none;min-height:260px;display:block;"></iframe>`
-                        : rawContent
-                            ? `<div style="padding:20px 24px;font-size:13.5px;color:var(--text2);line-height:1.85;white-space:pre-wrap;font-family:'Figtree',sans-serif;">${escA(rawContent)}</div>`
-                            : `<div style="padding:20px;color:var(--text3);font-style:italic;font-size:13px;">Aucun contenu disponible pour cet email.</div>`
+                        : `<div style="padding:20px;color:var(--text3);font-style:italic;font-size:13px;">Aucun contenu disponible pour cet email.</div>`
                     }
                     </div>
 
@@ -672,7 +699,8 @@
             // les caractères spéciaux et peut casser le rendu des emails HTML complexes
             emails.forEach(e=>{
                 const iframe  = document.getElementById(`iframe-${e.key}-${id}`);
-                const content = l.emailContent[e.key]||'';
+                const raw     = l.emailContent[e.key]||'';
+                const content = raw.trim().startsWith('<') ? raw : buildEmailHTML(raw, l);
                 if(iframe && content){
                 try{
                     iframe.contentDocument.open();
