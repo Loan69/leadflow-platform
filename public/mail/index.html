@@ -432,35 +432,61 @@ main {
 }
 .btn-validate:active { transform: translateY(0); }
 
-/* ── État validé ── */
+/* ── État validé (amélioré) ── */
 .validated-state {
   display: none;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 20px 36px 28px;
+  padding: 40px 36px 44px;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(42,154,120,.05) 0%, rgba(42,154,120,.02) 100%);
+  border-top: 1px solid rgba(42,154,120,.12);
   animation: fadeUp .4s ease both;
 }
 .validated-icon {
-  width: 40px;
-  height: 40px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background: rgba(52,167,130,.1);
-  border: 1px solid rgba(52,167,130,.25);
+  background: rgba(42,154,120,.1);
+  border: 1.5px solid rgba(42,154,120,.28);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 26px;
+  animation: popIn .45s cubic-bezier(.34,1.6,.64,1) both;
+  margin-bottom: 4px;
+}
+@keyframes popIn {
+  from { transform: scale(.4); opacity: 0; }
+  to   { transform: scale(1);  opacity: 1; }
 }
 .validated-text {
-  font-size: 14px;
+  font-family: 'Cormorant', serif;
+  font-size: 24px;
+  font-weight: 400;
   color: #2a9a78;
-  font-weight: 500;
+  letter-spacing: -.2px;
 }
 .validated-sub {
   font-size: 12px;
   color: #9a9180;
-  margin-top: 2px;
+  margin-top: 0;
+  text-align: center;
+  line-height: 1.6;
+}
+.validated-to {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 16px;
+  border-radius: 20px;
+  background: rgba(42,154,120,.08);
+  border: 1px solid rgba(42,154,120,.18);
+  font-size: 11.5px;
+  color: #2a9a78;
+  font-weight: 500;
+  margin-top: 6px;
+  font-style: italic;
 }
 
 /* ──────────────────────────────────────────
@@ -513,6 +539,132 @@ main {
   background: #c84040;
   border-color: #c84040;
   color: #fff;
+}
+
+/* ──────────────────────────────────────────
+   BARRE STATS
+────────────────────────────────────────── */
+.stats-bar {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  background: rgba(255,255,255,.8);
+  border: 1px solid rgba(26,24,20,.07);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 32px;
+  animation: fadeUp .4s .05s ease both;
+  backdrop-filter: blur(10px);
+}
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  gap: 4px;
+  position: relative;
+}
+.stat-item + .stat-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 18%; height: 64%;
+  width: 1px;
+  background: rgba(26,24,20,.07);
+}
+.stat-val {
+  font-family: 'Cormorant', serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  color: #1a1814;
+}
+.stat-val.green  { color: #2a9a78; }
+.stat-val.orange { color: #c85028; }
+.stat-val.gold   { color: #b8893a; }
+.stat-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #c8b89a;
+}
+
+/* ──────────────────────────────────────────
+   BADGE SOURCE (En direct / Démo)
+────────────────────────────────────────── */
+.source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+  margin-left: 6px;
+  position: relative;
+  top: -1px;
+  transition: all .2s;
+}
+.source-badge.live {
+  background: rgba(200,48,48,.07);
+  border: 1px solid rgba(200,48,48,.22);
+  color: #c03030;
+}
+.source-badge.demo {
+  background: rgba(26,24,20,.04);
+  border: 1px solid rgba(26,24,20,.1);
+  color: #b8b0a4;
+}
+.live-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #c03030;
+  animation: liveBlink 1.4s ease-in-out infinite;
+}
+@keyframes liveBlink {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .15; }
+}
+
+/* Démo : carte légèrement grisée */
+.card-received.is-demo  { filter: saturate(.65); opacity: .9; }
+.card-received.is-live  { border-color: rgba(200,48,48,.14); }
+
+/* ──────────────────────────────────────────
+   AUTO-SENT BANNER (emails simples n8n)
+────────────────────────────────────────── */
+.auto-sent-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 36px;
+  background: linear-gradient(135deg, rgba(42,154,120,.06), rgba(42,154,120,.03));
+  border-top: 1px solid rgba(42,154,120,.12);
+  font-size: 12.5px;
+  color: #2a9a78;
+  font-weight: 500;
+  animation: fadeUp .3s ease both;
+}
+.auto-sent-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(42,154,120,.12);
+  border: 1px solid rgba(42,154,120,.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.auto-sent-time {
+  font-size: 11px;
+  opacity: .55;
+  margin-left: 4px;
 }
 
 /* ──────────────────────────────────────────
@@ -575,15 +727,36 @@ main {
     <span class="scene-label-text" id="scene-label-text">Réponses automatiques IA — surveillance active</span>
   </div>
 
+  <!-- Stats rapides -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-val green" id="stat-auto">—</span>
+      <span class="stat-label">Auto-traités</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-val orange" id="stat-pending">—</span>
+      <span class="stat-label">En attente</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-val gold" id="stat-total">—</span>
+      <span class="stat-label">Total reçus</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-val" id="stat-rate">—</span>
+      <span class="stat-label">Taux automatique</span>
+    </div>
+  </div>
+
   <div class="card-wrap">
 
     <!-- Carte : email reçu -->
-    <div class="card card-received" id="card-received">
+    <div class="card card-received is-demo" id="card-received">
       <div class="card-header">
         <div class="card-header-left">
           <div class="card-type">
             <div class="card-type-dot"></div>
             Email reçu
+            <span class="source-badge demo" id="source-badge">Démo</span>
           </div>
           <div class="card-subject" id="email-subject">—</div>
           <div class="card-meta">
@@ -640,10 +813,9 @@ main {
       <!-- État validé (masqué par défaut) -->
       <div class="validated-state" id="validated-state">
         <div class="validated-icon">✓</div>
-        <div>
-          <div class="validated-text">Réponse validée</div>
-          <div class="validated-sub">L'email sera envoyé par l'automatisation</div>
-        </div>
+        <div class="validated-text">Email envoyé</div>
+        <div class="validated-sub" id="validated-sub">Réponse transmise avec succès</div>
+        <div class="validated-to" id="validated-to"></div>
       </div>
 
     </div>
@@ -804,12 +976,27 @@ async function pollEmails() {
     const badge   = document.getElementById('pending-badge');
     badge.style.display = pending > 0 ? 'flex' : 'none';
     document.getElementById('pending-count').textContent = pending;
+    updateStats();
     document.getElementById('scene-label-text').textContent = pending > 0
       ? `${pending} email${pending > 1 ? 's' : ''} complexe${pending > 1 ? 's' : ''} — validation requise`
       : 'Réponses automatiques IA — surveillance active';
   } catch(e) {
     // Silencieux — le serveur peut ne pas être démarré
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// STATS — Met à jour les compteurs de la barre
+// ════════════════════════════════════════════════════════════════
+function updateStats() {
+  const total   = emailsReels.length;
+  const auto    = emailsReels.filter(e => e.complexite === 'simple').length;
+  const pending = emailsReels.filter(e => e.complexite === 'complexe' && e.statut === 'pending' && e._statut !== 'sent').length;
+  const rate    = total > 0 ? Math.round(auto / total * 100) + '%' : '—';
+  document.getElementById('stat-auto').textContent    = total ? auto    : '—';
+  document.getElementById('stat-pending').textContent = total ? pending : '—';
+  document.getElementById('stat-total').textContent   = total || '—';
+  document.getElementById('stat-rate').textContent    = rate;
 }
 
 setInterval(pollEmails, 3000);
@@ -868,7 +1055,20 @@ function loadItem(index, btn) {
     document.getElementById('email-time').textContent    = ex.time || '';
     document.getElementById('email-body').textContent    = ex.body;
 
-    // Badge "EN DIRECT" si email réel, sinon badge complexité
+    // Badge source (En direct / Démo)
+    const srcBadge = document.getElementById('source-badge');
+    const cardRcv  = document.getElementById('card-received');
+    if (ex.id) {
+      srcBadge.className   = 'source-badge live';
+      srcBadge.innerHTML   = '<div class="live-dot"></div>En direct';
+      cardRcv.className    = 'card card-received is-live';
+    } else {
+      srcBadge.className   = 'source-badge demo';
+      srcBadge.textContent = 'Démo';
+      cardRcv.className    = 'card card-received is-demo';
+    }
+
+    // Badge complexité
     const badge = document.getElementById('complexity-badge');
     if (ex.complexite === 'complexe') {
       badge.className   = 'complexity-badge cb-complexe';
@@ -892,17 +1092,29 @@ function loadItem(index, btn) {
     validEl.style.display = 'none';
     footer.style.display  = 'flex';
 
-    if (ex.complexite === 'simple' && ex.source !== 'n8n') {
-      footer.innerHTML = `
-        <div class="footer-hint">
-          <span class="hint-icon">⚡</span>
-          Envoyé automatiquement — affiché pour information
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#2a9a78;background:rgba(52,167,130,.07);border:1px solid rgba(52,167,130,.2);padding:7px 16px;border-radius:8px;">
-          ✓ Traité automatiquement
-        </div>`;
+    if (ex.complexite === 'simple') {
+      // Email simple — envoyé automatiquement (ou démo équivalente)
+      footer.style.display = 'none';
+      // Insère le banner auto-sent si pas déjà là
+      let banner = document.getElementById('auto-sent-banner');
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'auto-sent-banner';
+        document.getElementById('card-ai').appendChild(banner);
+      }
+      const now = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+      banner.className   = 'auto-sent-banner';
+      banner.style.display = 'flex';
+      banner.innerHTML = `
+        <div class="auto-sent-dot">✓</div>
+        Envoyé automatiquement par l'IA
+        <span class="auto-sent-time">${ex.id ? 'à ' + (ex.time || now) : '· démo'}</span>`;
       document.getElementById('ai-textarea').disabled = true;
     } else {
+      // Cache le banner auto si présent
+      const banner = document.getElementById('auto-sent-banner');
+      if (banner) banner.style.display = 'none';
+      footer.style.display = 'flex';
       footer.innerHTML = `
         <div class="footer-hint">
           <span class="hint-icon">✏️</span>
@@ -941,7 +1153,20 @@ async function valider() {
 
   document.getElementById('ai-textarea').disabled          = true;
   document.getElementById('card-footer').style.display     = 'none';
-  document.getElementById('validated-state').style.display = 'flex';
+  const vState = document.getElementById('validated-state');
+  vState.style.display = 'flex';
+
+  // Affiche le destinataire
+  const toEl = document.getElementById('validated-to');
+  const subEl = document.getElementById('validated-sub');
+  if (ex.from) {
+    toEl.textContent = ex.from.replace(/<.*>/, '').trim() || ex.from;
+    toEl.style.display = 'inline-flex';
+    subEl.textContent = ex.id ? 'Email transmis · réponse enregistrée' : 'Simulé (démo)';
+  } else {
+    toEl.style.display = 'none';
+    subEl.textContent = 'Réponse transmise avec succès';
+  }
 
   // Pour les emails réels (depuis n8n) — appelle l'API d'envoi
   if (ex.id) {
