@@ -206,6 +206,86 @@ app.patch('/api/emails/:id', async (req, res) => {
   }
 });
 
+// Envoyer email validé (MailMind) — met à jour le statut et appelle n8n si configuré
+app.post('/api/emails/:id/send', async (req, res) => {
+  const { reponse, sujet_reponse } = req.body;
+  try {
+    const emailRes = await pool.query('SELECT * FROM emails WHERE id = $1', [req.params.id]);
+    if (!emailRes.rows.length) return res.status(404).json({ error: 'Email non trouvé' });
+    const email = emailRes.rows[0];
+
+    const finalReponse = reponse      || email.reponse;
+    const finalSujet   = sujet_reponse || email.sujet_reponse;
+
+    await pool.query(
+      'UPDATE emails SET statut = $1, reponse = $2, sujet_reponse = $3 WHERE id = $4',
+      ['sent', finalReponse, finalSujet, req.params.id]
+    );
+
+    // Déclenche l'envoi Brevo via n8n si le webhook est configuré
+    const n8nWebhook = process.env.N8N_SEND_EMAIL_WEBHOOK;
+    if (n8nWebhook) {
+      try {
+        await fetch(n8nWebhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to:      email.from_addr,
+            subject: finalSujet,
+            body:    finalReponse,
+            emailId: req.params.id
+          })
+        });
+      } catch (wErr) {
+        console.warn('[EMAIL SEND] n8n webhook inaccessible:', wErr.message);
+      }
+    }
+
+    res.json({ status: 'sent' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Activité récente — agrège leads, emails et biens pour le hub
+app.get('/api/activity', async (req, res) => {
+  try {
+    const [leadsR, emailsR, biensR] = await Promise.all([
+      pool.query('SELECT id, prenom, nom, source, created_at FROM leads ORDER BY created_at DESC LIMIT 6'),
+      pool.query('SELECT id, from_addr, complexite, statut, created_at FROM emails ORDER BY created_at DESC LIMIT 4'),
+      pool.query('SELECT id, titre, adresse, potentiel, created_at FROM biens_pige ORDER BY created_at DESC LIMIT 4'),
+    ]);
+
+    const events = [
+      ...leadsR.rows.map(l => ({
+        tool: 'leads', icon: '📊',
+        text: `Lead — ${[l.prenom, l.nom].filter(Boolean).join(' ') || 'Inconnu'} via ${l.source || 'plateforme'}`,
+        created_at: l.created_at
+      })),
+      ...emailsR.rows.map(e => {
+        const name = (e.from_addr || '').split('<')[0].trim() || 'Inconnu';
+        return {
+          tool: 'mail', icon: '✉️',
+          text: e.complexite === 'complexe'
+            ? `Email complexe — validation requise (${name})`
+            : `Email répondu automatiquement (${name})`,
+          created_at: e.created_at
+        };
+      }),
+      ...biensR.rows.map(b => ({
+        tool: 'pige', icon: '🔍',
+        text: `Bien analysé — ${b.titre || b.adresse || '—'}`,
+        created_at: b.created_at
+      })),
+    ];
+
+    events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    res.json(events.slice(0, 10));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── PIGE ─────────────────────────────────────────────────────
 
 // n8n envoie un bien analysé ici

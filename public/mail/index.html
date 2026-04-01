@@ -559,6 +559,9 @@ main {
     <span class="logo-sub">Réponses IA</span>
   </div>
   <div class="header-right">
+    <div id="pending-badge" style="display:none;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;background:rgba(200,80,40,.08);border:1px solid rgba(200,80,40,.2);font-size:11px;font-weight:600;color:#c85028;letter-spacing:.5px;">
+      <span id="pending-count">0</span> en attente
+    </div>
     <div class="ai-indicator">
       <div class="ai-dot"></div>
       Claude IA actif
@@ -569,7 +572,7 @@ main {
 <!-- ── SCÈNE ── -->
 <main>
   <div class="scene-label">
-    <span class="scene-label-text">Suggestion de réponse en attente de validation</span>
+    <span class="scene-label-text" id="scene-label-text">Réponses automatiques IA — surveillance active</span>
   </div>
 
   <div class="card-wrap">
@@ -755,7 +758,7 @@ Direction Orpi Lyon`,
 // ════════════════════════════════════════════════════════════════
 // CONFIG
 // ════════════════════════════════════════════════════════════════
-const BASE_URL = 'leadflow-platform-production.up.railway.app'; // serveur railway
+const BASE_URL = ''; // chemin relatif — fonctionne en local et sur Railway
 
 // ════════════════════════════════════════════════════════════════
 // ÉTAT GLOBAL
@@ -790,14 +793,20 @@ async function pollEmails() {
     });
 
     if (hasNew) {
-      // Reconstruit les boutons d'exemples pour inclure le nouvel email
       rebuildExampleButtons();
-      // Affiche automatiquement le dernier email reçu
-      const idx = 0; // toujours en tête
       const btns = document.querySelectorAll('.example-btn');
-      loadItem(idx, btns[idx]);
+      loadItem(0, btns[0]);
       toast('📨', 'Nouvel email reçu depuis n8n !');
     }
+
+    // Met à jour le badge "en attente"
+    const pending = emailsReels.filter(e => e.complexite === 'complexe' && e.statut === 'pending' && e._statut !== 'sent').length;
+    const badge   = document.getElementById('pending-badge');
+    badge.style.display = pending > 0 ? 'flex' : 'none';
+    document.getElementById('pending-count').textContent = pending;
+    document.getElementById('scene-label-text').textContent = pending > 0
+      ? `${pending} email${pending > 1 ? 's' : ''} complexe${pending > 1 ? 's' : ''} — validation requise`
+      : 'Réponses automatiques IA — surveillance active';
   } catch(e) {
     // Silencieux — le serveur peut ne pas être démarré
   }
@@ -815,10 +824,16 @@ function rebuildExampleButtons() {
   const items = allItems();
 
   bar.innerHTML = items.map((item, i) => {
-    // Les emails réels ont un badge EN DIRECT
-    const isReal = item.source === 'n8n';
+    const isReal = !!item.id;
+    const isSent = item._statut === 'sent' || item.statut === 'sent';
+    const isAuto = item.complexite === 'simple' && isReal;
+    let prefix = '';
+    if (isSent)    prefix = '✅ ';
+    else if (isAuto) prefix = '⚡ ';
+    else if (isReal) prefix = '🔴 ';
+    const firstName = (item.from || '').split('<')[0].trim().split(' ')[0];
     const label  = isReal
-      ? `🔴 En direct — ${item.from.split('<')[0].trim().split(' ')[0]}`
+      ? `${prefix}${firstName || item.subject.slice(0, 16)}`
       : item._btnLabel || item.subject.slice(0, 22) + (item.subject.length > 22 ? '…' : '');
 
     return `<button
@@ -916,11 +931,42 @@ function loadExample(index, btn) {
 // ACTIONS
 // ════════════════════════════════════════════════════════════════
 
-function valider() {
-  document.getElementById('ai-textarea').disabled       = true;
-  document.getElementById('card-footer').style.display  = 'none';
+async function valider() {
+  const items = allItems();
+  const ex    = items[currentIndex];
+  if (!ex) return;
+
+  const reponse      = document.getElementById('ai-textarea').value;
+  const sujet_reponse = document.getElementById('ai-subject').textContent;
+
+  document.getElementById('ai-textarea').disabled          = true;
+  document.getElementById('card-footer').style.display     = 'none';
   document.getElementById('validated-state').style.display = 'flex';
-  toast('✅', 'Réponse validée — envoi déclenché');
+
+  // Pour les emails réels (depuis n8n) — appelle l'API d'envoi
+  if (ex.id) {
+    try {
+      const r = await fetch(`${BASE_URL}/api/emails/${ex.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reponse, sujet_reponse })
+      });
+      if (r.ok) {
+        toast('✅', 'Email envoyé via MailMind');
+        // Met à jour le statut local
+        ex._statut = 'sent';
+        // Met à jour le badge dans la barre d'exemples
+        rebuildExampleButtons();
+      } else {
+        toast('⚠️', 'Erreur envoi — statut sauvegardé');
+      }
+    } catch {
+      toast('⚠️', 'Serveur inaccessible — statut local');
+    }
+  } else {
+    // Email de démo — simulation
+    toast('✅', 'Réponse validée (démo)');
+  }
 }
 
 function ignorer() {

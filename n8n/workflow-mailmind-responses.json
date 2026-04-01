@@ -1,0 +1,266 @@
+{
+  "name": "LeadFlow - MailMind Réponses IA",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{ "mode": "everyMinute", "value": 5 }]
+        },
+        "mailbox": "INBOX",
+        "options": {
+          "allowUnauthorizedCerts": false,
+          "markSeen": true,
+          "downloadAttachments": false
+        }
+      },
+      "id": "mm-imap",
+      "name": "IMAP - Surveiller Boite Agence",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "credentials": {
+        "imap": { "id": "IMAP_CREDENTIAL_ID", "name": "IMAP Agence" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir avant utilisation\n// ═══════════════════════════════════════════════════════════\nconst ANTHROPIC_API_KEY    = 'REMPLACER_PAR_CLE_ANTHROPIC';\nconst BREVO_API_KEY        = 'REMPLACER_PAR_CLE_BREVO';\nconst LEADFLOW_BASE_URL    = 'https://REMPLACER.railway.app'; // URL Railway\nconst AGENCE_NOM           = 'Votre Agence';\nconst AGENCE_EMAIL         = 'contact@agence.fr'; // adresse d'envoi Brevo\n// ═══════════════════════════════════════════════════════════\n\nconst email = $input.first().json;\n\n// Extrait l'expéditeur\nconst fromAddr = email.from?.value?.[0]?.address || email.from?.text || '';\nconst fromName = email.from?.value?.[0]?.name || fromAddr;\n\n// Filtre les emails sortants (évite boucles)\nif (fromAddr.toLowerCase().includes(AGENCE_EMAIL.toLowerCase())) {\n  return [];\n}\n\n// Corps texte\nconst body = email.text\n  || (email.html || '').replace(/<[^>]+>/g, ' ').replace(/\\s{2,}/g, ' ').trim();\n\nreturn [{\n  json: {\n    from:            fromAddr,\n    from_name:       fromName,\n    subject:         email.subject || '',\n    body:            body.substring(0, 4000),\n    _anthropic_key:  ANTHROPIC_API_KEY,\n    _brevo_key:      BREVO_API_KEY,\n    _leadflow_url:   LEADFLOW_BASE_URL,\n    _agence_nom:     AGENCE_NOM,\n    _agence_email:   AGENCE_EMAIL,\n  }\n}];"
+      },
+      "id": "mm-config",
+      "name": "⚙️ Config + Préparer Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",         "value": "={{ $json._anthropic_key }}" },
+            { "name": "anthropic-version",  "value": "2023-06-01" },
+            { "name": "content-type",       "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  model: 'claude-opus-4-6',\n  max_tokens: 1000,\n  system: \"Tu es l'assistant IA d'une agence immobilière. Analyse les emails entrants et génère des réponses professionnelles.\\n\\nPour CHAQUE email, retourne UNIQUEMENT ce JSON (sans texte avant ni après) :\\n{\\\"complexite\\\": \\\"simple\\\" ou \\\"complexe\\\", \\\"raison\\\": \\\"explication courte\\\", \\\"sujet_reponse\\\": \\\"objet de la réponse\\\", \\\"reponse\\\": \\\"corps de la réponse email\\\"}\\n\\nCritères COMPLEXE : négociation de prix, menace juridique, réclamation grave, offre d'achat, situation exceptionnelle nécessitant un responsable.\\nCritères SIMPLE : demande d'info sur disponibilité, charges, surface, horaires de visite, questions factuelles.\",\n  messages: [{\n    role: 'user',\n    content: 'De : ' + $json.from_name + ' <' + $json.from + '>\\nObjet : ' + $json.subject + '\\n\\n' + $json.body\n  }]\n}) }}",
+        "options": {}
+      },
+      "id": "mm-claude",
+      "name": "Claude - Analyser & Générer Réponse",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input     = $input.first().json;\nconst raw       = input.content?.[0]?.text || '';\n\nlet parsed = { complexite: 'complexe', raison: 'Analyse impossible', sujet_reponse: 'Re: ' + input._subject, reponse: '' };\ntry {\n  const match = raw.match(/\\{[\\s\\S]*\\}/);\n  if (match) parsed = JSON.parse(match[0]);\n} catch(e) {}\n\n// Récupère les champs passés en amont via le nœud config\nconst prev = $('⚙️ Config + Préparer Email').first().json;\n\nreturn [{\n  json: {\n    from:            prev.from,\n    subject:         prev.subject,\n    body:            prev.body,\n    complexite:      parsed.complexite || 'complexe',\n    raison:          parsed.raison     || '',\n    sujet_reponse:   parsed.sujet_reponse || ('Re: ' + prev.subject),\n    reponse:         parsed.reponse    || '',\n    _brevo_key:      prev._brevo_key,\n    _leadflow_url:   prev._leadflow_url,\n    _agence_nom:     prev._agence_nom,\n    _agence_email:   prev._agence_email,\n  }\n}];"
+      },
+      "id": "mm-parser",
+      "name": "Parser Réponse Claude",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.complexite }}",
+                    "rightValue": "simple",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Simple"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.complexite }}",
+                    "rightValue": "complexe",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Complexe"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mm-router",
+      "name": "Router Simple / Complexe",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.1,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-key",      "value": "={{ $json._brevo_key }}" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  sender:    { name: $json._agence_nom, email: $json._agence_email },\n  to:        [{ email: $json.from }],\n  subject:   $json.sujet_reponse,\n  textContent: $json.reponse\n}) }}",
+        "options": {}
+      },
+      "id": "mm-brevo-simple",
+      "name": "Brevo - Envoyer Email Simple",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json._leadflow_url + '/webhook/email' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  from:           $json.from,\n  subject:        $json.subject,\n  body:           $json.body,\n  reponse:        $json.reponse,\n  sujet_reponse:  $json.sujet_reponse,\n  complexite:     $json.complexite,\n  raison:         $json.raison,\n  source:         'n8n'\n}) }}",
+        "options": {}
+      },
+      "id": "mm-register-simple",
+      "name": "LeadFlow - Enregistrer (Simple)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json._leadflow_url + '/webhook/email' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  from:           $json.from,\n  subject:        $json.subject,\n  body:           $json.body,\n  reponse:        $json.reponse,\n  sujet_reponse:  $json.sujet_reponse,\n  complexite:     'complexe',\n  raison:         $json.raison,\n  source:         'n8n'\n}) }}",
+        "options": {}
+      },
+      "id": "mm-register-complexe",
+      "name": "LeadFlow - Mettre en File (Complexe)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 420]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mailmind-send-validated",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "mm-send-webhook",
+      "name": "Webhook - Envoyer Email Validé",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 600],
+      "webhookId": "mailmind-send-validated"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-key",      "value": "REMPLACER_PAR_CLE_BREVO" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  sender:      { name: 'Agence', email: 'contact@agence.fr' },\n  to:          [{ email: $json.body.to }],\n  subject:     $json.body.subject,\n  textContent: $json.body.body\n}) }}",
+        "options": {}
+      },
+      "id": "mm-brevo-validated",
+      "name": "Brevo - Envoyer Email Validé",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 600]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"sent\" }",
+        "options": {}
+      },
+      "id": "mm-send-response",
+      "name": "Répondre OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [720, 600]
+    }
+  ],
+  "connections": {
+    "IMAP - Surveiller Boite Agence": {
+      "main": [[{ "node": "⚙️ Config + Préparer Email", "type": "main", "index": 0 }]]
+    },
+    "⚙️ Config + Préparer Email": {
+      "main": [[{ "node": "Claude - Analyser & Générer Réponse", "type": "main", "index": 0 }]]
+    },
+    "Claude - Analyser & Générer Réponse": {
+      "main": [[{ "node": "Parser Réponse Claude", "type": "main", "index": 0 }]]
+    },
+    "Parser Réponse Claude": {
+      "main": [[{ "node": "Router Simple / Complexe", "type": "main", "index": 0 }]]
+    },
+    "Router Simple / Complexe": {
+      "main": [
+        [{ "node": "Brevo - Envoyer Email Simple",        "type": "main", "index": 0 }],
+        [{ "node": "LeadFlow - Mettre en File (Complexe)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Brevo - Envoyer Email Simple": {
+      "main": [[{ "node": "LeadFlow - Enregistrer (Simple)", "type": "main", "index": 0 }]]
+    },
+    "Webhook - Envoyer Email Validé": {
+      "main": [[{ "node": "Brevo - Envoyer Email Validé", "type": "main", "index": 0 }]]
+    },
+    "Brevo - Envoyer Email Validé": {
+      "main": [[{ "node": "Répondre OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "tags": ["leadflow", "mailmind", "email-ia"]
+}

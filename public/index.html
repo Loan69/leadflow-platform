@@ -809,8 +809,15 @@
             if (isDemoMode) {
                 applyMetrics(DEMO_DATA.metrics);
                 renderActivity(DEMO_DATA.activity);
-                applyMRR(134, DEMO_DATA.clients);
                 updateBadges(DEMO_DATA.metrics);
+                // Stats démo
+                const dm = DEMO_DATA.metrics;
+                document.getElementById('gs-rate-val').textContent   = dm.leads.rate.replace('%','');
+                document.getElementById('gs-bar').style.width        = dm.leads.rate;
+                document.getElementById('gs-leads-total').textContent = dm.leads.today + dm.leads.pending;
+                document.getElementById('gs-biens').textContent      = dm.pige.total;
+                document.getElementById('gs-mails-sent').textContent = dm.mail.auto;
+                document.getElementById('gs-mandats').textContent    = dm.mandat.total;
             } else {
                 // Mode production — appelle les APIs réelles
                 try {
@@ -858,21 +865,18 @@
                 document.getElementById('gs-mails-sent').textContent  = pigeSent;
                 document.getElementById('gs-mandats').textContent     = stats.mandats_total || 0;
 
-                // Activité synthétique depuis les vraies données
-                const fmtTime = d => d ? new Date(d).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '—';
-                const activity = [
-                    ...leads.slice(0, 3).map(l => ({
-                    tool: 'leads', ico: 'ai-leads', icon: '📊',
-                    text: `<strong>Lead</strong> — ${l.prenom || ''} ${l.nom || ''} via ${l.source || 'plateforme'}`,
-                    time: fmtTime(l.created_at)
-                    })),
-                    ...biens.slice(0, 3).map(b => ({
-                    tool: 'pige', ico: 'ai-pige', icon: '🔍',
-                    text: `<strong>Bien analysé</strong> — ${b.titre || b.adresse || '—'}`,
-                    time: fmtTime(b.created_at)
-                    })),
-                ];
-                renderActivity(activity);
+                // Activité depuis l'API agrégée
+                const actRes    = await fetch(`${CONFIG.prod.api}/api/activity`);
+                const actEvents = await actRes.json();
+                const icoMap = { leads:'ai-leads', mail:'ai-mail', pige:'ai-pige', mandat:'ai-mandat' };
+                const activity = actEvents.map(e => ({
+                    tool: e.tool,
+                    ico:  icoMap[e.tool] || 'ai-leads',
+                    icon: e.icon,
+                    text: `<strong>${e.text.split(' — ')[0]}</strong>${e.text.includes(' — ') ? ' — ' + e.text.split(' — ').slice(1).join(' — ') : ''}`,
+                    time: relTime(e.created_at)
+                }));
+                renderActivity(activity.length ? activity : DEMO_DATA.activity);
                 } catch(e) {
                 toast('⚠️', 'Serveur non disponible', 'Passage en mode démo');
                 isDemoMode = true;
@@ -880,6 +884,20 @@
                 loadData();
                 }
             }
+            }
+
+            // Temps relatif ("Il y a 4 min", "Hier", etc.)
+            function relTime(dateStr) {
+            if (!dateStr) return '—';
+            const diff = Date.now() - new Date(dateStr).getTime();
+            const min  = Math.floor(diff / 60000);
+            const h    = Math.floor(diff / 3600000);
+            const d    = Math.floor(diff / 86400000);
+            if (min < 1)   return 'À l\'instant';
+            if (min < 60)  return `Il y a ${min} min`;
+            if (h   < 24)  return `Il y a ${h}h`;
+            if (d   === 1) return 'Hier';
+            return `Il y a ${d}j`;
             }
 
             // Vérifie si une date est aujourd'hui
