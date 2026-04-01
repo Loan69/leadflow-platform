@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ═══════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir ces valeurs avant utilisation\n// ═══════════════════════════════════════════════════════\nconst CONFIG = {\n  ANTHROPIC_API_KEY: 'sk-ant-api03-REMPLACER',\n  BREVO_API_KEY:     'xkeysib-REMPLACER',\n  LEADFLOW_URL:      'https://REMPLACER.railway.app',   // sans slash final\n  AGENT_NAME:        'Prénom Nom',\n  AGENT_EMAIL:       'agent@agence.com',\n  AGENT_PHONE:       '+33XXXXXXXXX',                    // format E.164\n  SENDER_EMAIL:      'noreply@agence.com',              // email expéditeur Brevo\n};\n// ═══════════════════════════════════════════════════════\n\nconst lead = $input.first().json;\nreturn [{ json: { ...lead, ...CONFIG } }];"
+        "jsCode": "// ═══════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir ces valeurs avant utilisation\n// ═══════════════════════════════════════════════════════\nconst CONFIG = {\n  ANTHROPIC_API_KEY: 'sk-ant-api03-REMPLACER',\n  BREVO_API_KEY:     'xkeysib-REMPLACER',\n  LEADFLOW_URL:      'https://REMPLACER.railway.app',   // sans slash final\n  AGENT_NAME:        'Prénom Nom',\n  AGENT_EMAIL:       'agent@agence.com',\n  AGENT_PHONE:       '+33XXXXXXXXX',                    // format E.164\n  SENDER_EMAIL:      'noreply@agence.com',              // email expéditeur Brevo\n};\n// ═══════════════════════════════════════════════════════\n\n// Le Webhook n8n enveloppe le body POST dans .body\nconst raw  = $input.first().json;\nconst lead = (raw.body && typeof raw.body === 'object') ? raw.body : raw;\nreturn [{ json: { ...lead, ...CONFIG } }];"
       },
       "id": "node-config",
       "name": "⚙️ Configuration",
