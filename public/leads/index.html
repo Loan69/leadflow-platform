@@ -592,9 +592,12 @@
             const html=emails.map(e=>{
                 const status   = l.emailStatus[e.key];
                 const hist     = l.sendHistory.filter(h=>h.key===e.key); // historique de cet email
-                const htmlContent = l.emailContent[e.key]||'';           // HTML pour l'aperçu
-                const textContent = l.emailText[e.key]||'';              // Texte brut pour l'édition
-                const hasHTML  = htmlContent.trim().startsWith('<');      // détecte si c'est du HTML
+                const rawContent  = l.emailContent[e.key]||'';
+                const hasHTML     = rawContent.trim().startsWith('<');
+                const htmlContent = rawContent;
+                // Texte brut : strip balises si HTML, sinon contenu tel quel
+                const textContent = l.emailText?.[e.key] ||
+                  (hasHTML ? rawContent.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim() : rawContent);
 
                 // Boutons d'action selon le statut de l'email
                 let ab;
@@ -633,24 +636,24 @@
                 </div>
                 <div class="email-card-body open" id="ebody-${e.key}-${id}">
                     <div class="email-view-tabs">
-                    <!-- Aperçu : rendu HTML réel de l'email dans un iframe isolé -->
-                    <button class="evtab active" onclick="switchEV('${e.key}','${id}','preview',this)">Aperçu HTML</button>
-                    <!-- Modifier : texte brut uniquement, sans balises HTML -->
-                    <button class="evtab" onclick="switchEV('${e.key}','${id}','edit',this)">Modifier le texte</button>
+                    <button class="evtab active" onclick="switchEV('${e.key}','${id}','preview',this)">Aperçu</button>
+                    <button class="evtab" onclick="switchEV('${e.key}','${id}','edit',this)">Modifier</button>
                     </div>
 
-                    <!-- Aperçu HTML : iframe isolé pour rendre l'email fidèlement -->
+                    <!-- Aperçu : iframe si HTML, bloc texte si texte brut -->
                     <div id="eprev-${e.key}-${id}" class="email-preview-html">
                     ${hasHTML
                         ? `<iframe id="iframe-${e.key}-${id}" style="width:100%;border:none;min-height:260px;display:block;"></iframe>`
-                        : `<div style="padding:20px;color:var(--text3);font-style:italic;font-size:13px;">Aucun contenu disponible pour cet email.</div>`
+                        : rawContent
+                            ? `<div style="padding:20px 24px;font-size:13.5px;color:var(--text2);line-height:1.85;white-space:pre-wrap;font-family:'Figtree',sans-serif;">${escA(rawContent)}</div>`
+                            : `<div style="padding:20px;color:var(--text3);font-style:italic;font-size:13px;">Aucun contenu disponible pour cet email.</div>`
                     }
                     </div>
 
-                    <!-- Éditeur texte brut : l'agent modifie uniquement le corps sans voir le HTML -->
+                    <!-- Éditeur texte brut -->
                     <div id="eedit-${e.key}-${id}" style="display:none;">
                     <div style="font-size:11px;color:var(--text3);margin-bottom:8px;padding:8px 10px;background:var(--bg4);border-radius:6px;">
-                        ✏️ Vous modifiez le corps du texte. La mise en forme HTML de l'email est préservée automatiquement.
+                        ✏️ Modifiez le corps du message ci-dessous
                     </div>
                     <textarea class="email-text-edit" id="etxt-${e.key}-${id}" placeholder="Corps du message…">${escA(textContent)}</textarea>
                     <div class="email-edit-actions">
