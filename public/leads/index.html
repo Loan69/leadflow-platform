@@ -149,7 +149,7 @@
             .tl-d{font-size:11px;color:var(--text2);line-height:1.4;}
             .tl-time{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:3px;}
             /* EMAILS TAB */
-            .emails-tab-content{padding:20px 28px;display:flex;flex-direction:column;gap:14px;}
+            .emails-tab-content{padding:12px 20px;display:flex;flex-direction:column;gap:8px;}
             .email-card{background:var(--bg3);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s;}
             .email-card:hover{border-color:var(--border2);}
             .email-card-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer;}
@@ -167,7 +167,7 @@
             .btn-skip-email:hover{color:var(--red);border-color:rgba(248,113,113,.3);}
             .btn-sent-badge{display:flex;align-items:center;gap:5px;color:var(--green);font-size:11px;font-weight:600;}
             .btn-skipped-badge{display:flex;align-items:center;gap:5px;color:var(--text3);font-size:11px;}
-            .email-card-body{padding:16px;border-top:1px solid var(--border);display:none;}
+            .email-card-body{padding:10px 14px;border-top:1px solid var(--border);display:none;}
             .email-card-body.open{display:block;}
             .email-view-tabs{display:flex;gap:6px;margin-bottom:12px;}
             .evtab{padding:5px 12px;background:var(--bg4);border:1px solid var(--border2);color:var(--text3);border-radius:6px;font-size:11px;cursor:pointer;transition:all .2s;font-family:'Figtree',sans-serif;}
@@ -407,7 +407,7 @@
             activeScoreFilter='all',
             activeStatusFilter='all',
             selectedId=null,
-            knownIds=new Set(),
+            knownIds=new Set(JSON.parse(localStorage.getItem('lf_seen_leads')||'[]')),
             relanceLeadId=null,
             relanceSelected=null;
 
@@ -441,6 +441,7 @@
                 remote.forEach((r,i)=>{
                 if(!knownIds.has(r.id)){
                     knownIds.add(r.id);
+                    localStorage.setItem('lf_seen_leads',JSON.stringify([...knownIds]));
                     r.initials=ini(r.prenom||'',r.nom||'');
                     r.color=gc(leads.length);
                     if(!r.history)r.history=[];
@@ -672,7 +673,7 @@
                     <!-- Aperçu : toujours un iframe — HTML natif ou texte wrappé dans le template -->
                     <div id="eprev-${e.key}-${id}" class="email-preview-html">
                     ${rawContent
-                        ? `<iframe id="iframe-${e.key}-${id}" style="width:100%;border:none;min-height:260px;display:block;"></iframe>`
+                        ? `<iframe id="iframe-${e.key}-${id}" style="width:100%;border:none;min-height:180px;display:block;"></iframe>`
                         : `<div style="padding:20px;color:var(--text3);font-style:italic;font-size:13px;">Aucun contenu disponible pour cet email.</div>`
                     }
                     </div>
