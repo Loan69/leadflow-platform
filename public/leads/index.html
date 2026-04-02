@@ -407,7 +407,7 @@
             activeScoreFilter='all',
             activeStatusFilter='all',
             selectedId=null,
-            knownIds=new Set(JSON.parse(localStorage.getItem('lf_seen_leads')||'[]')),
+            knownIds=new Set(),
             relanceLeadId=null,
             relanceSelected=null;
 
@@ -433,31 +433,45 @@
             }
             function escA(s){return(s||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
+            function hydrateLead(r,i){
+                r.initials=ini(r.prenom||'',r.nom||'');
+                r.color=gc(i);
+                if(!r.history)r.history=[];
+                if(!r.emailStatus)r.emailStatus={j0:'auto_sent',j2:'pending',j7:'pending'};
+                if(!r.emailContent)r.emailContent={j0:r.email_bienvenue||'',j2:r.relance_j2||'',j7:r.relance_j7||''};
+                if(!r.sendHistory)r.sendHistory=[];
+                return r;
+            }
+
+            // Chargement initial silencieux — remplit leads[] et knownIds sans toast
+            async function initLeads(){
+            try{
+                const r=await fetch(`${BASE_URL}/api/leads`);
+                const remote=await r.json();
+                remote.forEach((r,i)=>{
+                knownIds.add(r.id);
+                leads.push(hydrateLead(r,i));
+                });
+                renderList();updateStats();
+            }catch(e){}
+            }
+
+            // Polling — toast uniquement pour les leads arrivés après le chargement initial
             async function pollLeads(){
             try{
                 const r=await fetch(`${BASE_URL}/api/leads`);
                 const remote=await r.json();
                 let hasNew=false;
-                remote.forEach((r,i)=>{
+                remote.forEach((r)=>{
                 if(!knownIds.has(r.id)){
                     knownIds.add(r.id);
-                    localStorage.setItem('lf_seen_leads',JSON.stringify([...knownIds]));
-                    r.initials=ini(r.prenom||'',r.nom||'');
-                    r.color=gc(leads.length);
-                    if(!r.history)r.history=[];
-                    if(!r.emailStatus)r.emailStatus={j0:'auto_sent',j2:'pending',j7:'pending'};
-                    if(!r.emailContent)r.emailContent={
-                    j0:r.email_bienvenue||'',
-                    j2:r.relance_j2||'',
-                    j7:r.relance_j7||''
-                    };
-                    if(!r.sendHistory)r.sendHistory=[];
-                    leads.unshift(r);hasNew=true;
-                    // Ajouter automatiquement les events de suivi dans l'historique
+                    hydrateLead(r,leads.length);
+                    // Events historique
                     r.history.push({ico:'🏠',cls:'tl-lead',title:'Lead reçu',desc:`Via ${r.source||'plateforme'}`,time:ts()});
                     r.history.push({ico:'🤖',cls:'tl-ai',title:'Analyse IA effectuée',desc:`Score : ${sLabel(r.score)} — ${r.score_raison||''}`.slice(0,80),time:ts()});
                     r.history.push({ico:'📧',cls:'tl-email',title:'Email de bienvenue envoyé',desc:`À ${r.email} — J+0 automatique`,time:ts()});
                     if(r.tel) r.history.push({ico:'💬',cls:'tl-sms',title:'SMS envoyé',desc:`À ${r.tel}`,time:ts()});
+                    leads.unshift(r);hasNew=true;
                     addGE('🏠',`Nouveau lead — ${r.prenom} ${r.nom}`,r.source||'');
                     addGE('📧',`Email bienvenue envoyé`,`${r.prenom} ${r.nom}`);
                     if(r.score==='hot') addGE('🔥',`Lead chaud détecté !`,`${r.prenom} ${r.nom} — ${r.bien||''}`);
@@ -467,7 +481,7 @@
                 if(hasNew){renderList();updateStats();}
             }catch(e){}
             }
-            setInterval(pollLeads,3000);pollLeads();
+            initLeads().then(()=>setInterval(pollLeads,3000));
 
             function updateStats(){
             const t=leads.length,hot=leads.filter(l=>l.score==='hot').length,won=leads.filter(l=>l.status==='won').length;
