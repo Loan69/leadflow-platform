@@ -1,0 +1,252 @@
+{
+  "name": "Leadflow - Pige automatisée",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1200, 80],
+      "id": "ebdf318e-1635-46a0-80cf-74994863231e",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "triggerAtHour": 8 }]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1200, 280],
+      "id": "fee75149-4384-4447-addc-973630d14e94",
+      "name": "Activation à 8h"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "cfg-01", "name": "SCRAPER_API_KEY",  "value": "REMPLACER_PAR_CLE_SCRAPERAPI", "type": "string" },
+            { "id": "cfg-02", "name": "ANTHROPIC_API_KEY","value": "sk-ant-REMPLACER",            "type": "string" },
+            { "id": "cfg-03", "name": "BREVO_API_KEY",    "value": "xkeysib-REMPLACER",           "type": "string" },
+            { "id": "cfg-04", "name": "LEADFLOW_URL",     "value": "https://REMPLACER.railway.app","type": "string" },
+            { "id": "cfg-05", "name": "AGENCE_NAME",      "value": "Nom de l'agence",             "type": "string" },
+            { "id": "cfg-06", "name": "AGENT_EMAIL",      "value": "agent@agence.com",            "type": "string" },
+            { "id": "cfg-07", "name": "SENDER_EMAIL",     "value": "noreply@agence.com",          "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-960, 180],
+      "id": "config-pige-001",
+      "name": "⚙️ Configuration"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://api.scraperapi.com?api_key=' + $json.SCRAPER_API_KEY + '&url=https://www.pap.fr/annonce/vente-appartement-maison-lyon-69-g43590' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-720, 180],
+      "id": "f768c736-f619-4b0c-9a40-bab94ef93878",
+      "name": "Scrapping PAP",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = $input.item.json.data;\nconst annonces = [];\n\nconst blocs = html.split(/data-annonce=\"/).slice(1);\n\nfor (const bloc of blocs) {\n  try {\n    const jsonStringRaw = bloc.substring(0, bloc.indexOf('\"'));\n    const jsonString = jsonStringRaw.replace(/&quot;/g, '\"');\n\n    let dataAnnonce = {};\n    try { dataAnnonce = JSON.parse(jsonString); } catch(e) {}\n\n    const titreMatch = bloc.match(/class=\"h1\"[^>]*>\\s*([^<]+)\\s*<\\/span>/);\n    const titre = titreMatch ? titreMatch[1].trim() : '';\n\n    const prixMatch = bloc.match(/class=\"item-price[^\"]*\">\\s*([\\d\\s\\.]+)(?:&nbsp;)?&euro;/);\n    const prix = prixMatch ? parseInt(prixMatch[1].replace(/[^\\d]/g, ''), 10) : (dataAnnonce.prix || null);\n\n    const urlMatch = bloc.match(/href=\"(\\/annonces\\/[^\"]+)\"/);\n    const url = urlMatch ? 'https://www.pap.fr' + urlMatch[1] : '';\n\n    const descMatch = bloc.match(/class=\"item-description\"[^>]*>\\s*([\\s\\S]*?)\\s*<\\/p>/);\n    const description = descMatch ? descMatch[1].replace(/<[^>]+>/g, '').trim() : '';\n\n    const tags = [...bloc.matchAll(/<li[^>]*>(.*?)<\\/li>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim().toLowerCase());\n\n    let surface = dataAnnonce.surface || null;\n    let pieces = null;\n    let chambres = null;\n\n    tags.forEach(tag => {\n      if (tag.includes('m²') || tag.includes('m2')) {\n        const s = tag.match(/(\\d+)/);\n        if (s) surface = parseInt(s[1], 10);\n      }\n      if (tag.includes('pièce') || tag.includes('piece')) {\n        const p = tag.match(/(\\d+)/);\n        if (p) pieces = parseInt(p[1], 10);\n      }\n      if (tag.includes('chambre')) {\n        const c = tag.match(/(\\d+)/);\n        if (c) chambres = parseInt(c[1], 10);\n      }\n    });\n\n    let dpe = null;\n    const dpeMatch = bloc.match(/dpe[-_ ]?([a-gA-G])\\b/i);\n    if (dpeMatch) dpe = dpeMatch[1].toUpperCase();\n\n    if (dataAnnonce.id || titre) {\n      annonces.push({\n        json: {\n          id: dataAnnonce.id || null,\n          prix,\n          localisation: titre,\n          url,\n          surface_m2: surface,\n          nb_pieces: pieces,\n          nb_chambres: chambres,\n          dpe,\n          description,\n          tags_bruts: tags,\n          source: 'PAP',\n          date_scraping: new Date().toISOString()\n        }\n      });\n    }\n  } catch(error) {\n    continue;\n  }\n}\n\nreturn annonces;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 180],
+      "id": "56f3fa32-c9a3-4626-ba0b-a86758632d74",
+      "name": "Parse des résultats en json"
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-240, 180],
+      "id": "split-pige-001",
+      "name": "Split In Batches"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\n// Construction du contexte pour Claude\nconst contexteAnnonce = [\n  '<annonce>',\n  'Localisation : ' + (data.localisation || 'Non précisé'),\n  'Prix : ' + (data.prix ? data.prix + ' €' : 'Non précisé'),\n  'Surface : ' + (data.surface_m2 ? data.surface_m2 + ' m²' : 'Non précisée'),\n  'Pièces : ' + (data.nb_pieces || 'Non précisé'),\n  'Chambres : ' + (data.nb_chambres || 'Non précisé'),\n  'DPE : ' + (data.dpe || 'Non précisé'),\n  'Tags : ' + (data.tags_bruts && data.tags_bruts.length > 0 ? data.tags_bruts.join(', ') : 'Aucun'),\n  'Description : ' + (data.description || 'Aucune description'),\n  '</annonce>'\n].join('\\n');\n\nconst userContent = [\n  'Analyse cette annonce immobilière pour préparer un mail de prospection.',\n  '',\n  contexteAnnonce,\n  '',\n  'Ta mission :',\n  '1. Évaluer le potentiel du bien (Fort, Moyen, Faible).',\n  \"2. Identifier le nombre d'étages (déduis-le de la description ou des tags).\",\n  '3. Rédiger un email de prise de contact percutant et naturel.',\n  '4. Note sur 100 le bien en fonction de sa pertinence et justifie en détail ton jugement.',\n  \"5. Trouver l'argument d'accroche principal.\",\n  '',\n  'Réponds STRICTEMENT au format JSON valide, sans aucun texte avant ou après, ni balises markdown :',\n  '{\"score\": <entier 0-100>, \"analyse\": \"justification du score\", \"script\": \"Bonjour...\", \"accroche\": \"argument principal\", \"etage\": \"nombre ou Non précisé\", \"potentiel\": \"fort, moyen ou faible\", \"type\": \"appartement ou maison\"}'\n].join('\\n');\n\nconst body = JSON.stringify({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1000,\n  system: 'Tu es un expert immobilier redoutable, spécialisé dans la prospection mail (pige immobilière).',\n  messages: [{ role: 'user', content: userContent }]\n});\n\n// On passe les données originales en avant pour éviter les références cross-nœuds\nreturn [{\n  json: {\n    body,\n    id:           data.id,\n    prix:         data.prix,\n    localisation: data.localisation,\n    url:          data.url,\n    surface_m2:   data.surface_m2,\n    nb_pieces:    data.nb_pieces,\n    nb_chambres:  data.nb_chambres,\n    dpe:          data.dpe,\n    description:  data.description,\n    tags_bruts:   data.tags_bruts,\n    source:       data.source,\n    date_scraping:data.date_scraping\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [0, 180],
+      "id": "8ff3f06c-e29c-4ae2-b724-79d6ff475d86",
+      "name": "Mise en forme pour IA"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",        "value": "={{ $('⚙️ Configuration').first().json.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [240, 180],
+      "id": "1ae3d3fc-97e7-42cc-b95c-3a48dcc30369",
+      "name": "Analyse IA"
+    },
+    {
+      "parameters": {
+        "jsCode": "const claudeItem = $input.first().json;\n// Les données originales viennent de Mise en forme pour IA (passées en avant)\nconst original = $('Mise en forme pour IA').first().json;\n\nconst formatFrDate = (dateStr) => {\n  if (!dateStr) return 'Date inconnue';\n  try {\n    return new Intl.DateTimeFormat('fr-FR', {\n      day: '2-digit', month: '2-digit', year: 'numeric',\n      hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris'\n    }).format(new Date(dateStr)).replace(',', ' -');\n  } catch (e) { return dateStr; }\n};\n\nconst rawContent = claudeItem.content?.[0]?.text || '';\n\nlet parsed = { score: 0, analyse: 'Erreur parsing', script: '', accroche: '', potentiel: 'Inconnu', type: '', etage: 'Non précisé' };\n\ntry {\n  const jsonMatch = rawContent.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);\n} catch(e) {\n  console.error('Erreur parsing JSON Claude : ' + e.message);\n}\n\nreturn [{\n  json: {\n    ...original,\n    date:     formatFrDate(original.date_scraping),\n    score:    parsed.score    || 0,\n    analyse:  parsed.analyse  || '',\n    script:   parsed.script   || '',\n    accroche: parsed.accroche || '',\n    potentiel:parsed.potentiel|| 'Non détecté',\n    type:     parsed.type     || '',\n    emoji:    (parsed.type || '').toLowerCase().includes('maison') ? '🏠' : '🏢',\n    etage:    parsed.etage    || 'Non précisé'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 180],
+      "id": "8403d76b-e899-4f49-bf6d-b2cd6bded71d",
+      "name": "Parse analyse IA"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('⚙️ Configuration').first().json.LEADFLOW_URL + '/api/pige/bien' }}",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "id",            "value": "={{ $json.id }}" },
+            { "name": "prix",          "value": "={{ $json.prix }}" },
+            { "name": "adresse",       "value": "={{ $json.localisation }}" },
+            { "name": "titre",         "value": "={{ $json.localisation + ' - ' + $json.prix }}" },
+            { "name": "type",          "value": "={{ $json.type }}" },
+            { "name": "surface",       "value": "={{ $json.surface_m2 }}" },
+            { "name": "pieces",        "value": "={{ $json.nb_pieces }}" },
+            { "name": "etage",         "value": "={{ $json.etage }}" },
+            { "name": "dpe",           "value": "={{ $json.dpe }}" },
+            { "name": "source",        "value": "={{ $json.source }}" },
+            { "name": "url",           "value": "={{ $json.url }}" },
+            { "name": "date_scrapping","value": "={{ $json.date }}" },
+            { "name": "potentiel",     "value": "={{ $json.potentiel }}" },
+            { "name": "score",         "value": "={{ $json.score }}" },
+            { "name": "score_raison",  "value": "={{ $json.analyse }}" },
+            { "name": "accroche",      "value": "={{ $json.accroche }}" },
+            { "name": "script",        "value": "={{ $json.script }}" },
+            { "name": "emoji",         "value": "={{ $json.emoji }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [720, 180],
+      "id": "7a007f35-5c7a-42d2-a3f9-dca2f2ae49e5",
+      "name": "Envoi résultats à Leadflow"
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 2,
+        "unit": "seconds",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [960, 180],
+      "id": "wait-pige-001",
+      "name": "Attendre 2s"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Déclenché par la sortie 'done' de Split In Batches\n// Reçoit les items originaux scrapés (sans analyse IA — celle-ci est dans LeadFlow)\nconst items = $input.all();\nconst cfg = $('⚙️ Configuration').first().json;\n\nconst lignes = items.map(a => {\n  const d = a.json;\n  const localisation = d.localisation || 'Localisation non précisée';\n  const prix = d.prix ? Number(d.prix).toLocaleString('fr-FR') + ' €' : 'Prix N/A';\n  const url = d.url || '';\n  const source = d.source || 'PAP';\n\n  return [\n    '<div style=\"background:white;border:1px solid #e0e0e0;margin:10px 0;border-radius:6px;padding:14px;\">',\n    '<b style=\"color:#1B3A6B;font-size:14px;\">' + localisation + '</b>',\n    '<div style=\"margin-top:6px;color:#555;font-size:13px;\">💰 <b>' + prix + '</b> &nbsp;·&nbsp; 📍 ' + source + '</div>',\n    url ? '<a href=\"' + url + '\" style=\"display:inline-block;margin-top:10px;background:#2E5FAC;color:white;padding:6px 14px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:bold;\">Voir l\\'annonce →</a>' : '',\n    '</div>'\n  ].join('');\n}).join('');\n\nconst html = [\n  '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#f5f6fa;\">',\n  '<div style=\"background:#1B3A6B;padding:24px;border-radius:8px 8px 0 0;\">',\n  '<h2 style=\"color:white;margin:0;font-size:20px;\">📋 Pige du ' + new Date().toLocaleDateString('fr-FR') + '</h2>',\n  '<p style=\"color:#a8c4e8;margin:8px 0 0;font-size:13px;\">' + items.length + ' nouvelles annonces analysées par IA et ajoutées à LeadFlow</p>',\n  '</div>',\n  '<div style=\"padding:0 16px 16px;\">' + lignes + '</div>',\n  '<div style=\"background:#1B3A6B;padding:16px;border-radius:0 0 8px 8px;text-align:center;\">',\n  '<a href=\"' + cfg.LEADFLOW_URL + '/pige\" style=\"color:white;font-size:13px;text-decoration:none;\">Consulter l\\'analyse IA complète dans LeadFlow →</a>',\n  '</div>',\n  '</div>'\n].join('');\n\nreturn [{ json: {\n  html,\n  subject: '📋 Pige du ' + new Date().toLocaleDateString('fr-FR') + ' — ' + items.length + ' nouvelles annonces'\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 420],
+      "id": "a052f7f3-ab1a-4d72-b313-1b5eeb8af27a",
+      "name": "Préparation code du mail"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-key",      "value": "={{ $('⚙️ Configuration').first().json.BREVO_API_KEY }}" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ sender: { name: $('⚙️ Configuration').first().json.AGENCE_NAME, email: $('⚙️ Configuration').first().json.SENDER_EMAIL }, to: [{ email: $('⚙️ Configuration').first().json.AGENT_EMAIL }], subject: $json.subject, htmlContent: $json.html }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [480, 420],
+      "id": "brevo-pige-001",
+      "name": "Brevo - Envoi pige"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [[{ "node": "⚙️ Configuration", "type": "main", "index": 0 }]]
+    },
+    "Activation à 8h": {
+      "main": [[{ "node": "⚙️ Configuration", "type": "main", "index": 0 }]]
+    },
+    "⚙️ Configuration": {
+      "main": [[{ "node": "Scrapping PAP", "type": "main", "index": 0 }]]
+    },
+    "Scrapping PAP": {
+      "main": [[{ "node": "Parse des résultats en json", "type": "main", "index": 0 }]]
+    },
+    "Parse des résultats en json": {
+      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
+    },
+    "Split In Batches": {
+      "main": [
+        [{ "node": "Mise en forme pour IA",    "type": "main", "index": 0 }],
+        [{ "node": "Préparation code du mail", "type": "main", "index": 0 }]
+      ]
+    },
+    "Mise en forme pour IA": {
+      "main": [[{ "node": "Analyse IA", "type": "main", "index": 0 }]]
+    },
+    "Analyse IA": {
+      "main": [[{ "node": "Parse analyse IA", "type": "main", "index": 0 }]]
+    },
+    "Parse analyse IA": {
+      "main": [[{ "node": "Envoi résultats à Leadflow", "type": "main", "index": 0 }]]
+    },
+    "Envoi résultats à Leadflow": {
+      "main": [[{ "node": "Attendre 2s", "type": "main", "index": 0 }]]
+    },
+    "Attendre 2s": {
+      "main": [[{ "node": "Split In Batches", "type": "main", "index": 0 }]]
+    },
+    "Préparation code du mail": {
+      "main": [[{ "node": "Brevo - Envoi pige", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": ["leadflow", "pige"]
+}
