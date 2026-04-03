@@ -173,7 +173,7 @@
             .evtab{padding:5px 12px;background:var(--bg4);border:1px solid var(--border2);color:var(--text3);border-radius:6px;font-size:11px;cursor:pointer;transition:all .2s;font-family:'Figtree',sans-serif;}
             .evtab.active{background:rgba(200,164,90,.1);border-color:rgba(200,164,90,.3);color:var(--gold2);}
             .email-preview-html{background:white;border-radius:8px;overflow:hidden;}
-            .email-preview-html iframe{width:100%;border:none;min-height:280px;display:block;}
+            .email-preview-html iframe{width:100%;border:none;height:0;display:block;}
             .email-text-edit{background:var(--bg4);border:1px solid var(--border2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text2);line-height:1.7;min-height:120px;resize:none;outline:none;font-family:'Figtree',sans-serif;width:100%;}
             .email-text-edit:focus{border-color:var(--gold);}
             .email-edit-actions{display:flex;justify-content:flex-end;margin-top:8px;}
@@ -378,7 +378,7 @@
         
             <!-- Aperçu HTML dans un iframe -->
             <div id="preview-html-wrap" class="email-preview-html" style="max-height:360px;overflow-y:auto;border-radius:10px;">
-                <iframe id="preview-iframe" style="width:100%;border:none;min-height:280px;display:block;"></iframe>
+                <iframe id="preview-iframe" style="width:100%;border:none;height:0;display:block;"></iframe>
             </div>
         
             <!-- Éditeur texte brut -->
@@ -687,7 +687,7 @@
                     <!-- Aperçu : toujours un iframe — HTML natif ou texte wrappé dans le template -->
                     <div id="eprev-${e.key}-${id}" class="email-preview-html">
                     ${rawContent
-                        ? `<iframe id="iframe-${e.key}-${id}" style="width:100%;border:none;min-height:180px;display:block;"></iframe>`
+                        ? `<iframe id="iframe-${e.key}-${id}" style="width:100%;border:none;height:0;display:block;"></iframe>`
                         : `<div style="padding:20px;color:var(--text3);font-style:italic;font-size:13px;">Aucun contenu disponible pour cet email.</div>`
                     }
                     </div>
@@ -717,16 +717,21 @@
                 const raw     = l.emailContent[e.key]||'';
                 const content = raw.trim().startsWith('<') ? raw : buildEmailHTML(raw, l);
                 if(iframe && content){
+                const fitIframe=()=>{
+                    try{
+                    const h=iframe.contentDocument?.body?.scrollHeight;
+                    if(h>0) iframe.style.height=h+'px';
+                    }catch(e){}
+                };
                 try{
                     iframe.contentDocument.open();
-                    iframe.contentDocument.write(content); // injecte le HTML complet
+                    iframe.contentDocument.write(content);
                     iframe.contentDocument.close();
-                    // Auto-resize l'iframe à la hauteur réelle du contenu après rendu
-                    setTimeout(()=>{
-                    try{ iframe.style.height=(iframe.contentDocument.body.scrollHeight+20)+'px'; }catch(err){}
-                    },150);
+                    iframe.onload=fitIframe;
+                    setTimeout(fitIframe,200);
+                    setTimeout(fitIframe,600);
                 }catch(err){
-                    // Fallback : srcdoc si contentDocument est bloqué (politique cross-origin)
+                    iframe.onload=fitIframe;
                     iframe.srcdoc=content;
                 }
                 }
