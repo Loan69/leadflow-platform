@@ -35,11 +35,11 @@ app.post('/webhook/lead', async (req, res) => {
         id, prenom, nom, email, tel, bien, ville, source,
         projet, message, score, score_raison, status,
         email_bienvenue, relance_j2, relance_j7,
-        time, notes, history, email_status, email_text, send_history
+        time, notes, history, email_status, email_text, send_history, temperature
       )
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'new',$13,$14,$15,
               $16, '', '[]'::jsonb, '{"j0":"auto_sent","j2":"pending","j7":"pending"}'::jsonb,
-              '{}'::jsonb, '[]'::jsonb)
+              '{}'::jsonb, '[]'::jsonb,$17)
       ON CONFLICT (id) DO UPDATE SET
         email_bienvenue = CASE WHEN EXCLUDED.email_bienvenue <> '' THEN EXCLUDED.email_bienvenue ELSE leads.email_bienvenue END,
         relance_j2      = CASE WHEN EXCLUDED.relance_j2      <> '' THEN EXCLUDED.relance_j2      ELSE leads.relance_j2      END,
@@ -52,7 +52,7 @@ app.post('/webhook/lead', async (req, res) => {
       l.bien, l.ville || '', l.source, l.projet, l.message,
       l.score, l.score_raison,
       l.email_bienvenue || '', l.relance_j2 || '', l.relance_j7 || '',
-      time
+      time, l.temperature
     ]);
  
     console.log(`[LEADS] Nouveau lead : ${l.prenom} ${l.nom} — score: ${l.score}`);
@@ -78,7 +78,7 @@ app.get('/api/leads', async (req, res) => {
         COALESCE(email_status, '{"j0":"auto_sent","j2":"pending","j7":"pending"}'::jsonb) AS "emailStatus",
         COALESCE(email_text,   '{}'::jsonb) AS "emailText",
         COALESCE(send_history, '[]'::jsonb) AS "sendHistory",
-        created_at
+        created_at, temperature
       FROM leads
       ORDER BY created_at DESC
     `);
