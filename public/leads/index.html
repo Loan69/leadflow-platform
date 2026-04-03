@@ -417,8 +417,8 @@
             function ini(p,n){return(p[0]||'').toUpperCase()+(n[0]||'').toUpperCase();}
             function gc(i){return COLORS[i%COLORS.length];}
             function ts(){return new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
-            function sLabel(s){return s==='hot'?'🔥 Chaud':s==='warm'?'☀️ Tiède':'❄️ Froid';}
-            function sCls(s){return s==='hot'?'s-hot':s==='warm'?'s-warm':'s-cold';}
+            function sLabel(s){return (s==='hot'||s==='chaud')?'🔥 Chaud':(s==='warm'||s==='tiede')?'☀️ Tiède':'❄️ Froid';}
+            function sCls(s){return (s==='hot'||s==='chaud')?'s-hot':(s==='warm'||s==='tiede')?'s-warm':'s-cold';}
             function elapsed(t){
             if(!t)return{label:'—',cls:'elapsed-fresh'};
             const now=new Date(),p=t.split(':');
@@ -474,7 +474,7 @@
                     leads.unshift(r);hasNew=true;
                     addGE('🏠',`Nouveau lead — ${r.prenom} ${r.nom}`,r.source||'');
                     addGE('📧',`Email bienvenue envoyé`,`${r.prenom} ${r.nom}`);
-                    if(r.score==='hot') addGE('🔥',`Lead chaud détecté !`,`${r.prenom} ${r.nom} — ${r.bien||''}`);
+                    if(r.temperature==='chaud'||r.temperature==='hot') addGE('🔥',`Lead chaud détecté !`,`${r.prenom} ${r.nom} — ${r.bien||''}`);
                     toast('🏠','Nouveau lead',`${r.prenom} ${r.nom} — ${r.source}`);
                 }
                 });
@@ -484,7 +484,7 @@
             initLeads().then(()=>setInterval(pollLeads,3000));
 
             function updateStats(){
-            const t=leads.length,hot=leads.filter(l=>l.score==='hot').length,won=leads.filter(l=>l.status==='won').length;
+            const t=leads.length,hot=leads.filter(l=>l.temperature==='chaud'||l.temperature==='hot').length,won=leads.filter(l=>l.status==='won').length;
             const contacted=leads.filter(l=>l.status!=='new').length;
             document.getElementById('s-total').textContent=t;
             document.getElementById('s-hot').textContent=hot;
@@ -530,7 +530,7 @@
                 const st=stObj(lead.status),el=elapsed(lead.time);
                 const card=document.createElement('div');card.className='lcard'+(selectedId===lead.id?' active':'');
                 card.onclick=()=>selectLead(lead.id);
-                card.innerHTML=`<div class="lcard-top"><div class="avatar" style="background:${lead.color}18;color:${lead.color};border:1px solid ${lead.color}28">${lead.initials}</div><div style="flex:1;min-width:0"><div class="lcard-name">${lead.prenom} ${lead.nom}</div><div class="lcard-src">📍 ${lead.source||'Inconnu'}</div></div><div class="score-tag ${sCls(lead.score)}">${sLabel(lead.score)}</div></div><div class="lcard-prop">🏠 ${lead.bien}</div><div class="lcard-footer"><span class="status-badge ${st.cls}">${st.label}</span><div class="lcard-time-wrap"><span class="lcard-time">${lead.time}</span><span class="time-elapsed ${el.cls}">⏱ ${el.label}</span></div></div>`;
+                card.innerHTML=`<div class="lcard-top"><div class="avatar" style="background:${lead.color}18;color:${lead.color};border:1px solid ${lead.color}28">${lead.initials}</div><div style="flex:1;min-width:0"><div class="lcard-name">${lead.prenom} ${lead.nom}</div><div class="lcard-src">📍 ${lead.source||'Inconnu'}</div></div><div class="score-tag ${sCls(lead.temperature)}">${sLabel(lead.temperature)}</div></div><div class="lcard-prop">🏠 ${lead.bien}</div><div class="lcard-footer"><span class="status-badge ${st.cls}">${st.label}</span><div class="lcard-time-wrap"><span class="lcard-time">${lead.time}</span><span class="time-elapsed ${el.cls}">⏱ ${el.label}</span></div></div>`;
                 list.appendChild(card);
             });
             }
@@ -547,7 +547,7 @@
             }
             function renderHead(id){
             const l=leads.find(x=>x.id===id);if(!l)return;
-            document.getElementById('detail-head').innerHTML=`<div class="dh-top"><div class="dh-left"><div class="dh-avatar" style="background:${l.color}18;color:${l.color};border:1px solid ${l.color}28">${l.initials}</div><div><div class="dh-name">${l.prenom} ${l.nom}</div><div class="dh-meta"><span>📧 ${l.email}</span><span class="sep">·</span><span>📱 ${l.tel}</span><span class="sep">·</span><span class="score-tag ${sCls(l.score)}" style="display:inline-flex">${sLabel(l.score)}</span></div></div></div><div class="dh-right"><select class="status-select" onchange="changeStatus('${l.id}',this.value)">${STATUSES.map(s=>`<option value="${s.value}"${s.value===l.status?' selected':''}>${s.label}</option>`).join('')}</select><button class="btn-relancer" onclick="openRelance('${l.id}')">⚡ Relancer</button></div></div>`;
+            document.getElementById('detail-head').innerHTML=`<div class="dh-top"><div class="dh-left"><div class="dh-avatar" style="background:${l.color}18;color:${l.color};border:1px solid ${l.color}28">${l.initials}</div><div><div class="dh-name">${l.prenom} ${l.nom}</div><div class="dh-meta"><span>📧 ${l.email}</span><span class="sep">·</span><span>📱 ${l.tel}</span><span class="sep">·</span><span class="score-tag ${sCls(l.temperature)}" style="display:inline-flex">${sLabel(l.temperature)}</span></div></div></div><div class="dh-right"><select class="status-select" onchange="changeStatus('${l.id}',this.value)">${STATUSES.map(s=>`<option value="${s.value}"${s.value===l.status?' selected':''}>${s.label}</option>`).join('')}</select><button class="btn-relancer" onclick="openRelance('${l.id}')">⚡ Relancer</button></div></div>`;
             }
             function renderInfosTab(id){
             const l=leads.find(x=>x.id===id);if(!l)return;
