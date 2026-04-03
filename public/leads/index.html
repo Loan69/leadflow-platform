@@ -565,11 +565,10 @@
                 .join('');
               return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#f7f4ee;font-family:'Figtree',Helvetica,Arial,sans-serif;}</style>
-</head><body style="padding:32px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+<style>*{margin:0;padding:0;box-sizing:border-box;}html,body{background:#f7f4ee;font-family:'Figtree',Helvetica,Arial,sans-serif;overflow:hidden;}</style>
+</head><body>
+<div id="root" style="padding:12px 8px;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;margin:0 auto;">
   <tr><td style="background:#1c1a16;border-radius:12px 12px 0 0;padding:18px 32px;">
     <span style="font-family:'Cormorant Garamond',Georgia,serif;font-size:22px;font-weight:400;color:#f7f4ee;">
       Lead<em style="font-style:italic;color:#d4a853;">Flow</em>
@@ -582,8 +581,7 @@
     <p style="margin:0;color:#9a9180;font-size:11px;letter-spacing:.5px;">Propulsé par <span style="color:#b8893a;font-weight:600;">LeadFlow</span></p>
   </td></tr>
 </table>
-</td></tr>
-</table>
+</div>
 </body></html>`;
             }
 
@@ -719,7 +717,9 @@
                 if(iframe && content){
                 const fitIframe=()=>{
                     try{
-                    const h=iframe.contentDocument?.body?.scrollHeight;
+                    const doc=iframe.contentDocument;
+                    const root=doc.getElementById('root')||doc.body;
+                    const h=root.offsetHeight;
                     if(h>0) iframe.style.height=h+'px';
                     }catch(e){}
                 };
@@ -728,8 +728,8 @@
                     iframe.contentDocument.write(content);
                     iframe.contentDocument.close();
                     iframe.onload=fitIframe;
-                    setTimeout(fitIframe,200);
-                    setTimeout(fitIframe,600);
+                    setTimeout(fitIframe,100);
+                    setTimeout(fitIframe,800);
                 }catch(err){
                     iframe.onload=fitIframe;
                     iframe.srcdoc=content;
