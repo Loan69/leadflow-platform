@@ -539,7 +539,7 @@
                     </div>
                     <div class="tc-icon">📊</div>
                     <div class="tc-name">Suivi des leads</div>
-                    <div class="tc-desc">Réponse automatique en 30s, scoring IA, relances J+2 et J+7. Aucun lead ne reste sans réponse.</div>
+                    <div class="tc-desc">Tous vos leads entrants en un coup d'œil. Consultez le scoring IA, l'historique des échanges et gérez vos relances depuis cette vue.</div>
                     <div class="tc-metrics">
                     <div class="tc-metric">
                         <span class="tc-metric-label">Leads aujourd'hui</span>
@@ -564,7 +564,7 @@
                     </div>
                     <div class="tc-icon">✉️</div>
                     <div class="tc-name">MailMind</div>
-                    <div class="tc-desc">L'IA analyse chaque email entrant et rédige une réponse en 10 secondes. Validation en un clic pour les cas complexes.</div>
+                    <div class="tc-desc">Retrouvez ici chaque email entrant avec la réponse IA générée. Validez ou modifiez d'un clic avant envoi pour les situations qui le nécessitent.</div>
                     <div class="tc-metrics">
                     <div class="tc-metric">
                         <span class="tc-metric-label">Emails traités</span>
@@ -589,7 +589,7 @@
                     </div>
                     <div class="tc-icon">📋</div>
                     <div class="tc-name">Dossier mandat</div>
-                    <div class="tc-desc">Génère un dossier PDF professionnel avec données DVF réelles en 2 minutes. Pour arriver mieux préparé que vos concurrents.</div>
+                    <div class="tc-desc">Préparez chaque rendez-vous mandat avec un dossier PDF complet. Prix DVF de la rue, comparables récents, arguments de valorisation intégrés.</div>
                     <div class="tc-metrics">
                     <div class="tc-metric">
                         <span class="tc-metric-label">Dossiers générés</span>
@@ -614,7 +614,7 @@
                     </div>
                     <div class="tc-icon">🔍</div>
                     <div class="tc-name">Pige automatisée</div>
-                    <div class="tc-desc">Scrape PAP et LeBonCoin chaque matin à 8h. Analyse IA de chaque bien, score de potentiel et mail d'approche prêt à envoyer.</div>
+                    <div class="tc-desc">Consultez les annonces analysées chaque matin. Pour chaque bien : score de potentiel, argument d'accroche et script de prise de contact prêts à l'emploi.</div>
                     <div class="tc-metrics">
                     <div class="tc-metric">
                         <span class="tc-metric-label">Biens analysés</span>
@@ -652,18 +652,13 @@
                 </div>
 
                 <!-- Stats globales -->
-                <!-- Métriques performance agence — visibles par le prospect -->
                 <div class="global-stats-card">
-                    <div class="gs-title">Performance de votre agence</div>
-                    <div class="gs-big-val"><span id="gs-rate-val">94</span><span class="gs-pct">%</span></div>
-                    <div class="gs-big-label">de leads contactés en moins de 30 secondes</div>
-                    <div class="gs-progress-wrap" style="margin-top:10px;">
-                    <div class="gs-progress-bar" id="gs-bar" style="width:94%"></div>
-                    </div>
-                    <div class="gs-target">Avant LeadFlow : <span style="color:rgba(200,64,64,.8)">moins de 12%</span></div>
+                    <div class="gs-title">Mandats décrochés</div>
+                    <div class="gs-big-val"><span id="gs-mandats-signes">—</span></div>
+                    <div class="gs-big-label">depuis l'activation de LeadFlow</div>
                     <div class="gs-divider"></div>
                     <div class="gs-row">
-                    <span class="gs-row-label">Leads traités ce mois</span>
+                    <span class="gs-row-label">Leads reçus ce mois</span>
                     <span class="gs-row-val gold" id="gs-leads-total">—</span>
                     </div>
                     <div class="gs-row">
@@ -675,7 +670,7 @@
                     <span class="gs-row-val gold" id="gs-mails-sent">—</span>
                     </div>
                     <div class="gs-row">
-                    <span class="gs-row-label">Dossiers mandats générés</span>
+                    <span class="gs-row-label">Dossiers mandat générés</span>
                     <span class="gs-row-val" id="gs-mandats">—</span>
                     </div>
                 </div>
@@ -812,12 +807,11 @@
                 updateBadges(DEMO_DATA.metrics);
                 // Stats démo
                 const dm = DEMO_DATA.metrics;
-                document.getElementById('gs-rate-val').textContent   = dm.leads.rate.replace('%','');
-                document.getElementById('gs-bar').style.width        = dm.leads.rate;
-                document.getElementById('gs-leads-total').textContent = dm.leads.today + dm.leads.pending;
-                document.getElementById('gs-biens').textContent      = dm.pige.total;
-                document.getElementById('gs-mails-sent').textContent = dm.mail.auto;
-                document.getElementById('gs-mandats').textContent    = dm.mandat.total;
+                document.getElementById('gs-mandats-signes').textContent = 3;
+                document.getElementById('gs-leads-total').textContent    = dm.leads.today + dm.leads.pending;
+                document.getElementById('gs-biens').textContent          = dm.pige.total;
+                document.getElementById('gs-mails-sent').textContent     = dm.mail.auto;
+                document.getElementById('gs-mandats').textContent        = dm.mandat.total;
             } else {
                 // Mode production — appelle les APIs réelles
                 try {
@@ -857,13 +851,11 @@
                 updateBadges(metrics);
 
                 // Stats globales
-                const pigeSent = metrics.pige.sent;
-                document.getElementById('gs-rate-val').textContent = rate;
-                document.getElementById('gs-bar').style.width      = rate + '%';
-                document.getElementById('gs-leads-total').textContent = stats.leads_total || leads.length;
-                document.getElementById('gs-biens').textContent       = biens.length;
-                document.getElementById('gs-mails-sent').textContent  = pigeSent;
-                document.getElementById('gs-mandats').textContent     = stats.mandats_total || 0;
+                document.getElementById('gs-mandats-signes').textContent = stats.mandats_signes || 0;
+                document.getElementById('gs-leads-total').textContent    = stats.leads_total || leads.length;
+                document.getElementById('gs-biens').textContent          = biens.length;
+                document.getElementById('gs-mails-sent').textContent     = metrics.pige.sent;
+                document.getElementById('gs-mandats').textContent        = stats.mandats_total || 0;
 
                 // Activité depuis l'API agrégée
                 const actRes    = await fetch(`${CONFIG.prod.api}/api/activity`);
