@@ -66,6 +66,9 @@ async function setup() {
         created_at    TIMESTAMPTZ DEFAULT NOW()
       );
 
+      -- Colonne mandat_at sur leads (migration idempotente)
+      ALTER TABLE leads ADD COLUMN IF NOT EXISTS mandat_at TIMESTAMPTZ;
+
       -- Table dossiers mandat générés
       CREATE TABLE IF NOT EXISTS dossiers_mandat (
         id            SERIAL PRIMARY KEY,

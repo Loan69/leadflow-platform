@@ -78,7 +78,7 @@ app.get('/api/leads', async (req, res) => {
         COALESCE(email_status, '{"j0":"auto_sent","j2":"pending","j7":"pending"}'::jsonb) AS "emailStatus",
         COALESCE(email_text,   '{}'::jsonb) AS "emailText",
         COALESCE(send_history, '[]'::jsonb) AS "sendHistory",
-        created_at, temperature
+        created_at, temperature, mandat_at AS "mandatAt"
       FROM leads
       ORDER BY created_at DESC
     `);
@@ -115,6 +115,7 @@ app.patch('/api/leads/:id', async (req, res) => {
     emailStatus: 'email_status',
     emailText:   'email_text',
     sendHistory: 'send_history',
+    mandat_at:   'mandat_at',
   };
  
   try {
@@ -1135,17 +1136,19 @@ th:nth-child(6), td:nth-child(6) { width: 25%; }
 // ── STATS GLOBALES (hub) ─────────────────────────────────────
 app.get('/api/stats', async (req, res) => {
   try {
-    const [leads, emails, biens, mandats] = await Promise.all([
+    const [leads, emails, biens, mandats, mandatsSigned] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM leads'),
       pool.query("SELECT COUNT(*) FROM emails WHERE statut = 'pending'"),
       pool.query("SELECT COUNT(*) FROM biens_pige WHERE potentiel = 'fort'"),
       pool.query('SELECT COUNT(*) FROM dossiers_mandat'),
+      pool.query("SELECT COUNT(*) FROM leads WHERE status = 'mandat'"),
     ]);
     res.json({
       leads_total:    parseInt(leads.rows[0].count),
       emails_pending: parseInt(emails.rows[0].count),
       pige_fort:      parseInt(biens.rows[0].count),
       mandats_total:  parseInt(mandats.rows[0].count),
+      mandats_signes: parseInt(mandatsSigned.rows[0].count),
     });
   } catch(e) {
     res.status(500).json({ error: e.message });
