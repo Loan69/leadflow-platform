@@ -1,0 +1,189 @@
+{
+  "name": "LeadFlow - Prospection Agences Lyon",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1200, 300],
+      "id": "trigger-manual",
+      "name": "Lancer la prospection"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "cfg-01", "name": "SCRAPER_API_KEY",  "value": "REMPLACER_PAR_CLE_SCRAPERAPI",  "type": "string" },
+            { "id": "cfg-02", "name": "ANTHROPIC_API_KEY","value": "sk-ant-REMPLACER",              "type": "string" },
+            { "id": "cfg-03", "name": "BREVO_API_KEY",    "value": "xkeysib-REMPLACER",             "type": "string" },
+            { "id": "cfg-04", "name": "MON_PRENOM",       "value": "Loan",                          "type": "string" },
+            { "id": "cfg-05", "name": "MON_TEL",          "value": "06 XX XX XX XX",                "type": "string" },
+            { "id": "cfg-06", "name": "MON_EMAIL",        "value": "loan@leadflow.fr",              "type": "string" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-960, 300],
+      "id": "config-prosp-001",
+      "name": "⚙️ Configuration"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────\n// Liste des agences à prospecter\n// Remplis ce tableau avec les agences identifiées sur Google Maps\n// Format : { nom, ville, url_site, url_gmaps, tel, note_google, nb_avis }\n// ─────────────────────────────────────────────────────────────\nconst agences = [\n  {\n    nom:        'Régie Gindre',\n    ville:      'Lyon 6e',\n    url_site:   'https://www.regiegindre.fr',\n    url_gmaps:  'https://maps.google.com/?q=Régie+Gindre+Lyon',\n    tel:        '04 78 52 XX XX',\n    note_google: 4.2,\n    nb_avis:    34\n  },\n  {\n    nom:        'Grand Lyon Immobilier',\n    ville:      'Lyon 3e',\n    url_site:   'https://www.grandlyonimmobilier.com',\n    url_gmaps:  'https://maps.google.com/?q=Grand+Lyon+Immobilier',\n    tel:        '04 78 XX XX XX',\n    note_google: 4.1,\n    nb_avis:    28\n  }\n  // ← AJOUTE TES 48 AUTRES AGENCES ICI\n  // Conseil : copie-colle depuis ton Google Sheet, format identique\n];\n\nreturn agences.map(a => ({ json: a }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-720, 300],
+      "id": "liste-agences",
+      "name": "📋 Liste des agences"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://api.scraperapi.com?api_key=' + $('⚙️ Configuration').first().json.SCRAPER_API_KEY + '&url=' + encodeURIComponent($json.url_site) + '&render=false' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-480, 300],
+      "id": "scrape-site",
+      "name": "Scraper site agence",
+      "continueOnFail": true,
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst agences = $('📋 Liste des agences').all();\n\nreturn items.map((item, index) => {\n  const agence = (agences[index] || agences[0]).json;\n  const html = item.json.data || item.json.body || '';\n\n  // Extrait le texte brut (500 premiers chars des mentions légales si possible)\n  const mentionsMatch = html.match(/mentions?\\s*l[eé]gales?[\\s\\S]{0,2000}/i);\n  const texteBrut = (mentionsMatch ? mentionsMatch[0] : html)\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s{2,}/g, ' ')\n    .trim()\n    .substring(0, 1500);\n\n  // Cherche un email direct dans le HTML\n  const emailMatch = html.match(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g) || [];\n  const emailsFiltres = emailMatch.filter(e =>\n    !e.includes('example') && !e.includes('sentry') &&\n    !e.includes('schema') && !e.includes('jquery')\n  );\n\n  // Cherche un téléphone dans le HTML\n  const telMatch = html.match(/(?:0[1-9])(?:[\\s.\\-]?\\d{2}){4}/g) || [];\n\n  return { json: {\n    ...agence,\n    texte_site:    texteBrut,\n    emails_trouves: emailsFiltres.slice(0, 5),\n    tels_trouves:   telMatch.slice(0, 3),\n    scrape_ok:     html.length > 200\n  }};\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 300],
+      "id": "parse-site",
+      "name": "Extraire infos site"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key",        "value": "={{ $('⚙️ Configuration').first().json.ANTHROPIC_API_KEY }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type",      "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  model: 'claude-sonnet-4-6',\n  max_tokens: 1200,\n  system: 'Tu es un assistant commercial expert en prospection B2B immobilier. Tu analyses des agences immobilières indépendantes pour aider à personnaliser une approche commerciale. Tu répondras UNIQUEMENT en JSON valide, sans texte avant ni après.',\n  messages: [{\n    role: 'user',\n    content: [\n      'Agence : ' + $json.nom + ' — ' + $json.ville,\n      'Note Google : ' + $json.note_google + '/5 (' + $json.nb_avis + ' avis)',\n      'Emails trouvés sur site : ' + ($json.emails_trouves || []).join(', '),\n      'Téléphones trouvés : ' + ($json.tels_trouves || []).join(', '),\n      '',\n      'Extrait du site (mentions légales + contenu) :',\n      $json.texte_site || 'Site non accessible',\n      '',\n      'Ta mission :',\n      '1. Extraire le prénom et nom du gérant/directeur (cherche dans mentions légales, à propos, équipe)',\n      '2. Identifier le meilleur email de contact (préférer email direct du gérant > email agence > contact@)',\n      '3. Identifier UNE observation terrain précise et honnête sur cette agence (réactivité, site outdated, avis mentionnant délais, absence de photos, etc.)',\n      '4. Rédiger un email de prospection ultra-personnalisé de 5 lignes maximum, naturel, sans jargon IA, sans forcer. Contexte : je développe LeadFlow, un outil qui automatise la pige, les relances et les dossiers de mandats. Je cherche une agence partenaire pour un test gratuit de 2 mois.',\n      '',\n      'Réponds STRICTEMENT en JSON :',\n      '{\"gerant_prenom\": \"\", \"gerant_nom\": \"\", \"email_contact\": \"\", \"email_source\": \"mentions_legales|site|deduire|inconnu\", \"observation\": \"\", \"email_corps\": \", \"confiance\": \"haute|moyenne|faible\"}'\n    ].join('\\n')\n  }]\n}) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 3000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [0, 300],
+      "id": "claude-analyse",
+      "name": "Claude - Analyser & rédiger email"
+    },
+    {
+      "parameters": {
+        "jsCode": "const claudeItems = $input.all();\nconst agences     = $('Extraire infos site').all();\n\nreturn claudeItems.map((claudeItem, index) => {\n  const agence  = (agences[index] || agences[0]).json;\n  const rawText = claudeItem.json.content?.[0]?.text || '';\n\n  let parsed = {\n    gerant_prenom: '',\n    gerant_nom:    '',\n    email_contact: '',\n    email_source:  'inconnu',\n    observation:   '',\n    email_corps:   '',\n    confiance:     'faible'\n  };\n  try {\n    const m = rawText.match(/\\{[\\s\\S]*\\}/);\n    if (m) parsed = JSON.parse(m[0]);\n  } catch(e) {}\n\n  const cfg = $('⚙️ Configuration').first().json;\n\n  // Construit l'email final avec signature\n  const emailComplet = [\n    parsed.email_corps,\n    '',\n    cfg.MON_PRENOM,\n    cfg.MON_TEL,\n    cfg.MON_EMAIL\n  ].join('\\n');\n\n  // Sujet personnalisé\n  const sujet = parsed.gerant_prenom\n    ? 'Pour ' + parsed.gerant_prenom + ' — un outil à tester gratuitement'\n    : 'Un outil à tester gratuitement — ' + agence.nom;\n\n  return { json: {\n    // Infos agence\n    nom:            agence.nom,\n    ville:          agence.ville,\n    tel:            agence.tel || (agence.tels_trouves || [])[0] || '',\n    note_google:    agence.note_google,\n    nb_avis:        agence.nb_avis,\n    url_site:       agence.url_site,\n    // Contact identifié\n    gerant_prenom:  parsed.gerant_prenom,\n    gerant_nom:     parsed.gerant_nom,\n    email_contact:  parsed.email_contact || (agence.emails_trouves || [])[0] || '',\n    email_source:   parsed.email_source,\n    confiance:      parsed.confiance,\n    // Prospection\n    observation:    parsed.observation,\n    sujet_email:    sujet,\n    email_complet:  emailComplet,\n    // Statut\n    statut:         'À envoyer',\n    date_analyse:   new Date().toLocaleDateString('fr-FR')\n  }};\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "id": "parse-claude",
+      "name": "Parser résultat Claude"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "agences",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [480, 300],
+      "id": "aggregate-prosp",
+      "name": "Agréger résultats"
+    },
+    {
+      "parameters": {
+        "jsCode": "const agences = $input.first().json.agences || [];\nconst cfg = $('⚙️ Configuration').first().json;\n\n// ─── Trie par confiance puis par note ───\nconst ordre = { haute: 0, moyenne: 1, faible: 2 };\nconst sorted = [...agences].sort((a, b) => {\n  const co = (ordre[a.confiance] || 2) - (ordre[b.confiance] || 2);\n  if (co !== 0) return co;\n  return (b.note_google || 0) - (a.note_google || 0);\n});\n\n// ─── Résumé console ───\nconsole.log('=== RÉSULTATS PROSPECTION ===');\nsorted.forEach((a, i) => {\n  console.log(`${i+1}. ${a.nom} (${a.ville}) — ${a.gerant_prenom} ${a.gerant_nom} — ${a.email_contact} [${a.confiance}]`);\n});\n\n// ─── Email de récap pour toi ───\nconst lignesHtml = sorted.map(a => [\n  '<tr style=\"border-bottom:1px solid #e0e0e0;\">',\n  '<td style=\"padding:8px 12px;font-weight:600;\">' + a.nom + '</td>',\n  '<td style=\"padding:8px 12px;color:#666;\">' + a.ville + '</td>',\n  '<td style=\"padding:8px 12px;\">' + (a.gerant_prenom ? a.gerant_prenom + ' ' + a.gerant_nom : '—') + '</td>',\n  '<td style=\"padding:8px 12px;font-family:monospace;font-size:12px;\">' + (a.email_contact || '❌ Non trouvé') + '</td>',\n  '<td style=\"padding:8px 12px;\">',\n    '<span style=\"background:' + (a.confiance==='haute'?'#d4edda':a.confiance==='moyenne'?'#fff3cd':'#f8d7da') + ';padding:2px 8px;border-radius:4px;font-size:11px;\">' + a.confiance + '</span>',\n  '</td>',\n  '<td style=\"padding:8px 12px;font-size:12px;color:#444;max-width:200px;\">' + a.observation + '</td>',\n  '</tr>'\n].join('')).join('');\n\nconst html = [\n  '<div style=\"font-family:Arial,sans-serif;max-width:900px;margin:0 auto;\">',\n  '<div style=\"background:#1B3A6B;padding:20px;border-radius:8px 8px 0 0;\">',\n  '<h2 style=\"color:white;margin:0;font-size:18px;\">📊 Analyse prospection — ' + sorted.length + ' agences</h2>',\n  '<p style=\"color:#a8c4e8;margin:8px 0 0;font-size:13px;\">' + new Date().toLocaleDateString('fr-FR') + ' · Triées par qualité de contact identifié</p>',\n  '</div>',\n  '<table style=\"width:100%;border-collapse:collapse;background:white;border:1px solid #e0e0e0;\">',\n  '<thead><tr style=\"background:#f5f6fa;\">',\n  '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#666;\">Agence</th>',\n  '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#666;\">Ville</th>',\n  '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#666;\">Gérant</th>',\n  '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#666;\">Email</th>',\n  '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#666;\">Fiabilité</th>',\n  '<th style=\"padding:10px 12px;text-align:left;font-size:12px;color:#666;\">Observation</th>',\n  '</tr></thead>',\n  '<tbody>' + lignesHtml + '</tbody>',\n  '</table>',\n  '<div style=\"background:#f5f6fa;padding:16px;border-radius:0 0 8px 8px;margin-top:0;\">',\n  '<p style=\"color:#666;font-size:12px;margin:0;\">',\n  '✅ Haute confiance : ' + sorted.filter(a=>a.confiance==='haute').length + ' agences · ',\n  '⚠️ Moyenne : ' + sorted.filter(a=>a.confiance==='moyenne').length + ' · ',\n  '❌ Faible : ' + sorted.filter(a=>a.confiance==='faible').length,\n  '</p></div>',\n  '<details style=\"margin-top:20px;\"><summary style=\"cursor:pointer;font-weight:600;padding:12px;background:#f5f6fa;border-radius:6px;\">📝 Voir tous les emails rédigés</summary>',\n  '<div style=\"padding:12px;\">',\n  sorted.map(a => [\n    '<div style=\"border:1px solid #e0e0e0;border-radius:6px;margin:12px 0;overflow:hidden;\">',\n    '<div style=\"background:#EDF5FF;padding:10px 14px;border-left:4px solid #2E5FAC;\">',\n    '<strong>' + a.nom + '</strong> — ' + a.sujet_email,\n    '</div>',\n    '<pre style=\"padding:14px;margin:0;font-family:Arial,sans-serif;font-size:13px;white-space:pre-wrap;color:#333;\">' + a.email_complet + '</pre>',\n    '</div>'\n  ].join('')).join(''),\n  '</div></details>',\n  '</div>'\n].join('');\n\nreturn [{ json: {\n  html,\n  subject: '📊 Prospection Lyon — ' + sorted.length + ' agences analysées · ' + new Date().toLocaleDateString('fr-FR'),\n  nb_total: sorted.length,\n  nb_haute: sorted.filter(a=>a.confiance==='haute').length,\n  nb_emails_trouves: sorted.filter(a=>a.email_contact).length,\n  agences: sorted\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300],
+      "id": "recap-final",
+      "name": "Récap & Tri final"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "api-key",      "value": "={{ $('⚙️ Configuration').first().json.BREVO_API_KEY }}" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  sender:      { name: 'LeadFlow', email: $('⚙️ Configuration').first().json.MON_EMAIL },\n  to:          [{ email: $('⚙️ Configuration').first().json.MON_EMAIL }],\n  subject:     $json.subject,\n  htmlContent: $json.html\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [960, 300],
+      "id": "brevo-recap",
+      "name": "Brevo - Envoyer récap à moi"
+    }
+  ],
+  "connections": {
+    "Lancer la prospection": {
+      "main": [[{ "node": "⚙️ Configuration", "type": "main", "index": 0 }]]
+    },
+    "⚙️ Configuration": {
+      "main": [[{ "node": "📋 Liste des agences", "type": "main", "index": 0 }]]
+    },
+    "📋 Liste des agences": {
+      "main": [[{ "node": "Scraper site agence", "type": "main", "index": 0 }]]
+    },
+    "Scraper site agence": {
+      "main": [[{ "node": "Extraire infos site", "type": "main", "index": 0 }]]
+    },
+    "Extraire infos site": {
+      "main": [[{ "node": "Claude - Analyser & rédiger email", "type": "main", "index": 0 }]]
+    },
+    "Claude - Analyser & rédiger email": {
+      "main": [[{ "node": "Parser résultat Claude", "type": "main", "index": 0 }]]
+    },
+    "Parser résultat Claude": {
+      "main": [[{ "node": "Agréger résultats", "type": "main", "index": 0 }]]
+    },
+    "Agréger résultats": {
+      "main": [[{ "node": "Récap & Tri final", "type": "main", "index": 0 }]]
+    },
+    "Récap & Tri final": {
+      "main": [[{ "node": "Brevo - Envoyer récap à moi", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "active": false,
+  "pinData": {},
+  "tags": ["leadflow", "prospection", "acquisition"]
+}
