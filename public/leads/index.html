@@ -551,10 +551,7 @@
             }
             function renderHead(id){
             const l=leads.find(x=>x.id===id);if(!l)return;
-            const mandatBtn = l.status !== 'mandat'
-              ? `<button class="btn-mandat" onclick="markMandat('${l.id}')">🏆 Mandat décroché</button>`
-              : `<span class="status-badge st-mandat">🏆 Mandat décroché</span>`;
-            document.getElementById('detail-head').innerHTML=`<div class="dh-top"><div class="dh-left"><div class="dh-avatar" style="background:${l.color}18;color:${l.color};border:1px solid ${l.color}28">${l.initials}</div><div><div class="dh-name">${l.prenom} ${l.nom}</div><div class="dh-meta"><span>📧 ${l.email}</span><span class="sep">·</span><span>📱 ${l.tel}</span><span class="sep">·</span><span class="score-tag ${sCls(l.temperature)}" style="display:inline-flex">${sLabel(l.temperature)}</span></div></div></div><div class="dh-right">${mandatBtn}<select class="status-select" onchange="changeStatus('${l.id}',this.value)">${STATUSES.map(s=>`<option value="${s.value}"${s.value===l.status?' selected':''}>${s.label}</option>`).join('')}</select><button class="btn-relancer" onclick="openRelance('${l.id}')">⚡ Relancer</button></div></div>`;
+            document.getElementById('detail-head').innerHTML=`<div class="dh-top"><div class="dh-left"><div class="dh-avatar" style="background:${l.color}18;color:${l.color};border:1px solid ${l.color}28">${l.initials}</div><div><div class="dh-name">${l.prenom} ${l.nom}</div><div class="dh-meta"><span>📧 ${l.email}</span><span class="sep">·</span><span>📱 ${l.tel}</span><span class="sep">·</span><span class="score-tag ${sCls(l.temperature)}" style="display:inline-flex">${sLabel(l.temperature)}</span></div></div></div><div class="dh-right"><select class="status-select" onchange="changeStatus('${l.id}',this.value)">${STATUSES.map(s=>`<option value="${s.value}"${s.value===l.status?' selected':''}>${s.label}</option>`).join('')}</select><button class="btn-relancer" onclick="openRelance('${l.id}')">⚡ Relancer</button></div></div>`;
             }
             function renderInfosTab(id){
             const l=leads.find(x=>x.id===id);if(!l)return;
@@ -811,7 +808,7 @@
             const old=stObj(l.status).label;l.status=value;const nw=stObj(value).label;
             addLE(id,'🔄','tl-status','Statut mis à jour',`${old} → ${nw}`);
             addGE('🔄',`Statut — ${l.prenom} ${l.nom}`,nw);
-            toast('🔄','Statut mis à jour',nw);patch(id,{status:value});renderList();updateStats();
+            toast('🔄','Statut mis à jour',nw);patch(id,{status:value});renderList();updateStats();renderHead(id);renderInfosTab(id);
             }
             function markWon(id){
             const l=leads.find(x=>x.id===id);if(!l)return;

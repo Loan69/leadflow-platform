@@ -793,6 +793,11 @@
                 + '<br><span style="font-size:9px;color:var(--pale)">Dernière synchro : ' + new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone: 'Europe/Paris' }) + '</span>';
 
             loadData();
+            setInterval(() => {
+              loadData();
+              const syncEl = document.querySelector('#hub-date span');
+              if (syncEl) syncEl.textContent = 'Dernière synchro : ' + new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
+            }, 30000);
             }
 
             // ══════════════════════════════════════════════════════════════
