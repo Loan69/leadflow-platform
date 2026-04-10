@@ -11,22 +11,10 @@
     },
     {
       "parameters": {
-        "assignments": {
-          "assignments": [
-            { "id": "cfg-01", "name": "GOOGLE_PLACES_API_KEY", "value": "REMPLACER_PAR_CLE_GOOGLE_PLACES", "type": "string" },
-            { "id": "cfg-02", "name": "SCRAPER_API_KEY",        "value": "REMPLACER_PAR_CLE_SCRAPERAPI",   "type": "string" },
-            { "id": "cfg-03", "name": "ANTHROPIC_API_KEY",      "value": "sk-ant-REMPLACER",               "type": "string" },
-            { "id": "cfg-04", "name": "BREVO_API_KEY",          "value": "xkeysib-REMPLACER",              "type": "string" },
-            { "id": "cfg-05", "name": "MON_PRENOM",             "value": "Loan",                           "type": "string" },
-            { "id": "cfg-06", "name": "MON_TEL",                "value": "06 XX XX XX XX",                 "type": "string" },
-            { "id": "cfg-07", "name": "MON_EMAIL",              "value": "loan@leadflow.fr",               "type": "string" },
-            { "id": "cfg-08", "name": "NB_AGENCES_MAX",         "value": "50",                             "type": "string" }
-          ]
-        },
-        "options": {}
+        "jsCode": "// ═══════════════════════════════════════════════════════════\n// ⚙️  CONFIGURATION — Remplir avant utilisation\n// ═══════════════════════════════════════════════════════════\nconst GOOGLE_PLACES_API_KEY = 'REMPLACER_PAR_CLE_GOOGLE_PLACES';\nconst SCRAPER_API_KEY       = 'REMPLACER_PAR_CLE_SCRAPERAPI';\nconst ANTHROPIC_API_KEY     = 'sk-ant-REMPLACER';\nconst BREVO_API_KEY         = 'xkeysib-REMPLACER';\nconst MON_PRENOM            = 'Loan';\nconst MON_TEL               = '06 XX XX XX XX';\nconst MON_EMAIL             = 'loan@leadflow.fr';\nconst NB_AGENCES_MAX        = 50;\n// ═══════════════════════════════════════════════════════════\n\nreturn [{ json: {\n  GOOGLE_PLACES_API_KEY,\n  SCRAPER_API_KEY,\n  ANTHROPIC_API_KEY,\n  BREVO_API_KEY,\n  MON_PRENOM,\n  MON_TEL,\n  MON_EMAIL,\n  NB_AGENCES_MAX\n} }];"
       },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [-1200, 300],
       "id": "config-prosp-001",
       "name": "⚙️ Configuration"
