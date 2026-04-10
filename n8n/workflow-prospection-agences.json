@@ -20,7 +20,7 @@
             { "id": "cfg-05", "name": "MON_PRENOM",             "value": "Loan",                           "type": "string" },
             { "id": "cfg-06", "name": "MON_TEL",                "value": "06 XX XX XX XX",                 "type": "string" },
             { "id": "cfg-07", "name": "MON_EMAIL",              "value": "loan@leadflow.fr",               "type": "string" },
-            { "id": "cfg-08", "name": "NB_AGENCES_MAX",         "value": "50",                             "type": "number" }
+            { "id": "cfg-08", "name": "NB_AGENCES_MAX",         "value": "50",                             "type": "string" }
           ]
         },
         "options": {}
