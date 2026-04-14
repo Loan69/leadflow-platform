@@ -599,7 +599,8 @@
           approche:   raw.approche   || raw.script || raw.sript || '',
           mail_objet: raw.mail_objet || `Votre bien — ${raw.adresse || raw.localisation || ''}`,
           // mail_corps peut venir de 'accroche' ou 'sript'
-          mail_corps: raw.mail_corps || raw.script || raw.sript || raw.accroche || ''
+          mail_corps: raw.mail_corps || raw.script || raw.sript || raw.accroche || '',
+          url:        raw.url || ''
         };
 
         // Active le bouton PDF
@@ -631,6 +632,7 @@
                 <div class="dh-source">${b.source} · ${b.date}</div>
                 <div class="dh-title">${b.emoji} ${b.titre}</div>
                 <div class="dh-addr">📍 ${b.adresse}</div>
+                ${b.url ? `<a href="${b.url}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:12px;color:#2E5FAC;text-decoration:none;font-weight:500;">🔗 Voir l'annonce</a>` : ''}
               </div>
               <div>
                 <div class="dh-prix">${b.prix.toLocaleString('fr-FR')} €</div>
@@ -783,7 +785,8 @@
           score_raison: raw.score_raison || raw.analyse || raw.score_desc || '',
           approche:   raw.approche   || raw.script || raw.sript || '',
           mail_objet: raw.mail_objet || '',
-          mail_corps: raw.mail_corps || raw.script || raw.sript || raw.accroche || ''
+          mail_corps: raw.mail_corps || raw.script || raw.sript || raw.accroche || '',
+          url:        raw.url || ''
         };
 
         const now = new Date();
@@ -879,6 +882,7 @@
         <div class="eyebrow">${b.source} &nbsp;·&nbsp; Annonce particulier &nbsp;·&nbsp; ${b.date}</div>
         <div class="title">${b.titre}</div>
         <div class="addr">📍 &nbsp;${b.adresse}</div>
+        ${b.url ? `<a href="${b.url}" style="display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:9px;color:#2E5FAC;text-decoration:none;font-weight:600;letter-spacing:.3px;">🔗 VOIR L'ANNONCE</a>` : ''}
         <div class="tags">
           ${[b.surface + '&thinsp;m²', b.pieces + ' pièces', b.etage, 'DPE&nbsp;' + b.dpe].map(t => '<span class="tag">' + t + '</span>').join('')}
           <span class="pot-tag">${pvLbl[b.potentiel] || pvLbl.moyen}</span>
